@@ -1,5 +1,5 @@
 
-import { Buffer } from "buffer/index";
+import { Buffer } from "buffer";
 import {
   DataTypes,
   Schema,
@@ -136,7 +136,7 @@ export const unpack = <S extends Schema | Array<Schema>>(
       return val;
     }
 
-    if (typeof schema === "object") {
+    if (typeof schema === "object" && schema !== null) {
       let val: any = {};
       for (const key in schema) {
         val[key] = doUnpack((schema as { [name: string]: Schema })[key], buf, ctx);
