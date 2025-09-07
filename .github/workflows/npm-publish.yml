@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: '16.x'
           registry-url: https://registry.npmjs.org/          
-      - run: echo "//registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}}" > lib/.npmrc
+      - run: echo "//registry.npmjs.org/:_authToken=${{secrets.NPM_TOKEN}}" > .npmrc
       - run: npm ci
       - run: npm run build
       - run: npm publish --access public      
