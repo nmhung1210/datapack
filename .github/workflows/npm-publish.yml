@@ -18,6 +18,8 @@ jobs:
   publish-npm:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Grant write access to the id-token
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v4
