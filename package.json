@@ -1,6 +1,6 @@
 {
   "name": "datapack",
-  "version": "1.1.14",
+  "version": "1.1.15",
   "description": "Datapack is a JS library that provide high performance methods `pack` and `unpack` binary data using schema of data model. This library can be used in both NodeJS and Browser environtment.",
   "keywords": [
     "pack",
