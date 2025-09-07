@@ -1,7 +1,7 @@
 # datapack
 
 [![npm version](https://badge.fury.io/js/datapack.svg)](https://badge.fury.io/js/datapack)
-[![License: ISC](https://img.shields.io/badge/License-ISC-blue.svg)](https://opensource.org/licenses/ISC)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![npm downloads](https://img.shields.io/npm/dm/datapack.svg)](https://www.npmjs.com/package/datapack)
 
 Datapack is a JS library that provide high performance methods `pack` and `unpack` binary data using schema of data model.
@@ -241,4 +241,4 @@ This library can be used in both NodeJS and Browser environtment.
 
 ## License
 
-ISC
+MIT
