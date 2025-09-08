@@ -116,6 +116,32 @@ const unpackedState = unpack(packedState, stateDataSchema);
 console.log(unpackedState);
 ```
 
+### Options
+The `pack` and `unpack` functions accept an optional `options` object that allows you to enable checksum validation and encryption.
+
+```javascript
+import { pack, unpack, UINT8, STRING } from "datapack";
+
+const schema = {
+  a: UINT8,
+  b: STRING,
+};
+const data = {
+  a: 255,
+  b: "test string",
+};
+const options = {
+  useCheckSum: true,
+  useEncrypt: true,
+  secret: 123,
+};
+
+const packed = pack(data, schema, options);
+const unpacked = unpack(packed, schema, options);
+
+console.log(unpacked);
+```
+
 ### All Data Types
 ```javascript
 import {
@@ -210,9 +236,9 @@ console.log(unpacked_BINARY); // <Buffer 61 62 63>
 
 | Scenario | Datapack (pack) | Datapack (unpack) | JSON (stringify) | JSON (parse) |
 |---|---|---|---|---|
-| Simple object (number fields) | ~554,298 ops/sec | ~1,058,870 ops/sec | ~1,065,428 ops/sec | ~1,252,176 ops/sec |
-| Complex object | ~29,805 ops/sec | ~69,224 ops/sec | ~81,991 ops/sec | ~78,457 ops/sec |
-| Big object (~1MB) | ~13 ops/sec | ~20 ops/sec | ~36 ops/sec | ~30 ops/sec |
+| Simple object (number fields) | ~626,680 ops/sec | ~666,401 ops/sec | ~653,272 ops/sec | ~819,183 ops/sec |
+| Complex object | ~39,577 ops/sec | ~44,942 ops/sec | ~57,491 ops/sec | ~55,389 ops/sec |
+| Big object (~1MB) | ~18 ops/sec | ~16 ops/sec | ~25 ops/sec | ~22 ops/sec |
 
 ### Packed Size Comparison
 
@@ -224,16 +250,15 @@ console.log(unpacked_BINARY); // <Buffer 61 62 63>
 
 ## Test coverage
 
----------------|---------|----------|---------|---------|-------------------
-File | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
----------------|---------|----------|---------|---------|-------------------
-All files | 96.63 | 75.8 | 100 | 100 | 
- index.spec.ts | 100 | 100 | 100 | 100 | 
- index.ts | 100 | 100 | 100 | 100 | 
- packer.ts | 90 | 69.04 | 100 | 100 | 39,44-92,124-128 
- unpacker.ts | 100 | 88.88 | 100 | 100 | 93,99 
- utils.ts | 100 | 100 | 100 | 100 | 
----------------|---------|----------|---------|---------|-------------------
+-------------|---------|----------|---------|---------|-------------------
+File         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------|---------|----------|---------|---------|-------------------
+All files    |     100 |      100 |     100 |     100 |                   
+ index.ts    |     100 |      100 |     100 |     100 |                   
+ packer.ts   |     100 |      100 |     100 |     100 |                   
+ unpacker.ts |     100 |      100 |     100 |     100 |                   
+ utils.ts    |     100 |      100 |     100 |     100 |                   
+-------------|---------|----------|---------|---------|-------------------
 
 ## Compatibility
 
