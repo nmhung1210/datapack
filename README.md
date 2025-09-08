@@ -1,3 +1,4 @@
+
 # datapack
 
 [![npm version](https://badge.fury.io/js/datapack.svg)](https://badge.fury.io/js/datapack)
@@ -60,6 +61,52 @@ const unpacked = unpack(packed, schema);
 
 console.log(unpacked);
 ```
+
+## TypeScript Support
+
+`datapack` is written in TypeScript and comes with first-class type support.
+
+### Dynamic Type Generation
+
+One of the most powerful features of `datapack` is its ability to generate TypeScript types dynamically from your schema. When you use the `unpack` function, the return type is automatically inferred from the schema you provide. This gives you full type safety and autocompletion for your unpacked data, eliminating guesswork and reducing runtime errors.
+
+Here's an example of how it works:
+
+```typescript
+import { pack, unpack, UINT32, STRING, BOOL, UINT8 } from "datapack";
+
+const profileSchema = {
+  userId: UINT32,
+  nickName: STRING,
+  isVip: BOOL,
+  age: UINT8,
+};
+
+const profileData = {
+  userId: 101,
+  nickName: "Alice",
+  isVip: true,
+  age: 34,
+};
+
+const packedProfile = pack(profileData, profileSchema);
+
+// The 'unpackedProfile' variable will have a fully typed structure:
+// {
+//   userId: number;
+//   nickName: string;
+//   isVip: boolean;
+//   age: number;
+// }
+const unpackedProfile = unpack(packedProfile, profileSchema);
+
+// You get autocompletion and type checking!
+console.log(unpackedProfile.nickName.toUpperCase()); // Works!
+// console.log(unpackedProfile.invalidProperty); // TypeScript error!
+```
+
+
+
 
 ### Complex data structures
 ```javascript
