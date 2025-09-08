@@ -1,6 +1,6 @@
 {
   "name": "datapack",
-  "version": "1.1.18",
+  "version": "1.1.19",
   "description": "A high-performance JavaScript library for packing and unpacking binary data with a schema-based approach. Optimized for both Node.js and browser environments, datapack provides a simple and efficient way to serialize and deserialize complex data structures.",
   "keywords": [
     "pack",
