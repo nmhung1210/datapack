@@ -210,14 +210,32 @@ describe("MetaPack test", () => {
     expect(unpack(pack(Buffer.from([]), BINARY), BINARY).toString()).toBe("");
   });
 
-  it("should throw an error for mismatched schema and data", () => {
-    // Data mismatched
-    expect(() => pack("should be a number", UINT8)).toThrow();
+  it("should correctly pack and unpack with all combinations of checksum and encryption", () => {
+    const schema = {
+      a: UINT8,
+      b: STRING,
+    };
+    const data = {
+      a: 255,
+      b: "test string",
+    };
+    const secret = 123;
 
-    // Unpack with a different schema
-    const packed = pack(123, UINT8);
-    expect(() => unpack(packed, INT8)).not.toThrow(); // This is valid, since they have the same size
-    expect(() => unpack(packed, UINT16)).toThrow(); // This should throw because of mismatched buffer size
+    const optionsCombinations = [
+      { useCheckSum: false, useEncrypt: false },
+      { useCheckSum: true, useEncrypt: false },
+      { useCheckSum: false, useEncrypt: true },
+      { useCheckSum: true, useEncrypt: true },
+    ];
+
+    for (const options of optionsCombinations) {
+      const finalOptions = { ...options, secret };
+      const packed = pack(data, schema, finalOptions);
+      const unpacked = unpack(packed, schema, finalOptions);
+
+      // Check if unpacked data is correct
+      expect(unpacked).toEqual(data);
+    }
   });
 
   it("should handle large data to trigger buffer reallocation", () => {
@@ -227,21 +245,83 @@ describe("MetaPack test", () => {
     expect(unpacked).toEqual(largeString);
   });
 
-  it("should handle unpacker-specific errors", () => {
-    // Invalid package (too short)
-    expect(() => unpack(Buffer.from([1]), UINT8)).toThrow(
-      "Invalid package!"
+  it("should handle all error scenarios", () => {
+    // 1. Packer: Invalid data types
+    expect(() => pack(123, STRING)).toThrow(
+      "Invalid data type for STRING. Expected string."
+    );
+    expect(() => pack("hello", UINT8)).toThrow(
+      "Invalid data type for UINT8. Expected number."
+    );
+    expect(() => pack(123, BOOL)).toThrow(
+      "Invalid data type for BOOL. Expected boolean."
+    );
+    expect(() => pack("hello", INT8)).toThrow(
+      "Invalid data type for INT8. Expected number."
+    );
+    expect(() => pack("hello", UINT16)).toThrow(
+      "Invalid data type for UINT16. Expected number."
+    );
+    expect(() => pack("hello", INT16)).toThrow(
+      "Invalid data type for INT16. Expected number."
+    );
+    expect(() => pack("hello", UINT32)).toThrow(
+      "Invalid data type for UINT32. Expected number."
+    );
+    expect(() => pack("hello", INT32)).toThrow(
+      "Invalid data type for INT32. Expected number."
+    );
+    expect(() => pack(123, UINT64)).toThrow(
+      "Invalid data type for UINT64. Expected bigint."
+    );
+    expect(() => pack(123, INT64)).toThrow(
+      "Invalid data type for INT64. Expected bigint."
+    );
+    expect(() => pack("hello", FLOAT)).toThrow(
+      "Invalid data type for FLOAT. Expected number."
+    );
+    expect(() => pack(123, BINARY)).toThrow(
+      "Invalid data type for BINARY. Expected Buffer."
     );
 
-    // Checksum mismatch
-    const packedWithChecksum = pack(123, UINT8, { useCheckSum: true });
-    packedWithChecksum[0] = 99; // Corrupt the data
-    expect(() => unpack(packedWithChecksum, UINT8, { useCheckSum: true })).toThrow(
-      /Data mismatch!/
-    );
+    // 2. Unpacker: Buffer Overflows (should throw RangeError)
+    const packed8 = pack(123, UINT8);
+    expect(() => unpack(packed8, UINT16)).toThrow(RangeError);
 
-    // Invalid schema
-    const packed = pack(123, UINT8);
-    expect(unpack(packed, null as any)).toBeUndefined();
+    const smallBuffer = Buffer.from([0, 0, 0, 10]); // Length 10, but no data
+    expect(() => unpack(smallBuffer, STRING)).toThrow(Error);
+
+    const packedArray = pack([1, 2], [UINT8]);
+    const malformedArray = Buffer.concat([
+      Buffer.from([0, 0, 0, 5]), // Say there are 5 elements
+      packedArray.slice(4), // but only provide 2
+    ]);
+    expect(() => unpack(malformedArray, [UINT8], { useCheckSum: false })).toThrow(RangeError);
+
+    // 3. Unpacker: Invalid Package (checksum)
+    expect(() =>
+      unpack(Buffer.from([1]), UINT8, { useCheckSum: true })
+    ).toThrow("Invalid package!");
+
+    // 4. Unpacker: Data Mismatch (checksum)
+    const checksumSchema = { a: UINT8, b: STRING };
+    const checksumData = { a: 255, b: "test string" };
+    const checksumOptions = { useCheckSum: true, secret: 123 };
+    const packedWithChecksum = pack(
+      checksumData,
+      checksumSchema,
+      checksumOptions
+    );
+    const corruptedPacked = Buffer.from(packedWithChecksum);
+    corruptedPacked.writeInt16BE(999, corruptedPacked.length - 2); // Corrupt checksum
+    expect(() =>
+      unpack(corruptedPacked, checksumSchema, checksumOptions)
+    ).toThrow(/Data mismatch!/);
+
+    // 5. Unpacker: Graceful failures for empty/invalid schemas and data
+    expect(() => unpack(Buffer.from([]), UINT8)).toThrow("Invalid package!");
+    expect(() => unpack(pack(1, UINT8), null as any)).toThrow("Invalid schema!");
+    expect(() => unpack(pack(1, UINT8), undefined as any)).toThrow("Invalid schema!");
+    expect(unpack(pack(1, UINT8), "abc" as any)).toBeUndefined();
   });
 });

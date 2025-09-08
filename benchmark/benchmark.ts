@@ -145,4 +145,4 @@ suite
   .on("complete", () => {
     console.log("Benchmark is complete");
   })
-  .run({ async: true });
+  .run();

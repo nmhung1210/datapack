@@ -90,15 +90,17 @@ export const unpack = <S extends Schema | Array<Schema>>(
   opt?: IPackConfigOptions
 ): SchemaToType<S> => {
   const conf = Object.assign({}, defaultConfig, opt || {});
-  let buff = data instanceof Buffer ? data : Buffer.from(data as any);
+  let buff = Buffer.from(data as any);
 
   if (!buff || buff.length < 2) {
     throw new Error("Invalid package!");
   }
 
   if (conf.useCheckSum || conf.useEncrypt) {
-    const dataBuff = Buffer.from(buff.slice(0, buff.length - 2));
+    const dataEndOffset = conf.useCheckSum ? buff.length - 2 : buff.length;
+    const dataBuff = Buffer.from(buff.slice(0, dataEndOffset));
     let checksum = 0;
+
     for (let i = 0; i < dataBuff.length; i++) {
       if (conf.useEncrypt) {
         dataBuff[i] = dataBuff[i] - i - conf.secret;
@@ -108,9 +110,9 @@ export const unpack = <S extends Schema | Array<Schema>>(
     checksum = checksum % 32000;
 
     if (conf.useCheckSum) {
-      const validchecksum = buff.readInt16BE(buff.length - 2);
+      const validchecksum = buff.readInt16BE(dataEndOffset);
       if (checksum !== validchecksum) {
-        throw new Error(`Data mismatch! ${checksum} vs ${validchecksum}`);
+        throw new Error(`Data mismatch!`);
       }
     }
     buff = dataBuff;
@@ -121,6 +123,10 @@ export const unpack = <S extends Schema | Array<Schema>>(
     buf: Buffer,
     ctx: { offset: number }
   ): any => {
+    if (schema === null || schema === undefined) {
+      throw Error('Invalid schema!');
+    }
+
     if (typeof schema === "number") {
       return unpackerFunctions[schema](buf, ctx);
     }
