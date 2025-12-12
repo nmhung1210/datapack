@@ -10,6 +10,25 @@ import {
 let sharedBuff = Buffer.alloc(1024 * 10); // Start with 10KB
 let offset = 0;
 
+
+if (typeof Buffer.prototype.writeBigUInt64BE !== 'function') {
+  Buffer.prototype.writeBigUInt64BE = function (value: bigint, offset: number = 0): number {
+    const high = Number(value >> BigInt(32));
+    const low = Number(value & BigInt(0xFFFFFFFF));
+    this.writeUInt32BE(high, offset);
+    this.writeUInt32BE(low, offset + 4);
+    return offset + 8;
+  };
+};
+
+if (typeof Buffer.prototype.readBigUInt64BE !== 'function') {
+  Buffer.prototype.readBigUInt64BE = function (offset: number = 0): bigint {
+    const high = BigInt(this.readUInt32BE(offset));
+    const low = BigInt(this.readUInt32BE(offset + 4));
+    return (high << BigInt(32)) + low;
+  };
+};
+
 export const pack = (
   data: any,
   dataSchema: Schema | Array<Schema>,
@@ -85,7 +104,7 @@ export const pack = (
           const dataBuff = data as Buffer;
           ensureSize(4 + dataBuff.length);
           offset = sharedBuff.writeInt32BE(dataBuff.length, offset);
-          dataBuff.copy(sharedBuff  as Uint8Array, offset);
+          dataBuff.copy(sharedBuff as Uint8Array, offset);
           offset += dataBuff.length;
           break;
         case DataTypes.STRING: {
