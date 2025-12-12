@@ -22,7 +22,7 @@ export const pack = (
   const ensureSize = (size: number) => {
     if (offset + size > sharedBuff.length) {
       const newBuff = Buffer.alloc(sharedBuff.length * 2 + size);
-      sharedBuff.copy(newBuff, 0, 0, offset);
+      sharedBuff.copy(newBuff as Uint8Array, 0, 0, offset);
       sharedBuff = newBuff;
     }
   };
@@ -66,14 +66,14 @@ export const pack = (
           offset = sharedBuff.writeInt32BE(data, offset);
           break;
         case DataTypes.UINT64:
-          if (typeof data !== 'bigint') throw new Error('Invalid data type for UINT64. Expected bigint.');
+          if (typeof data !== 'number' && typeof data !== 'bigint') throw new Error('Invalid data type for UINT64. Expected number or bigint.');
           ensureSize(8);
-          offset = Number(sharedBuff.writeBigUInt64BE(data, offset));
+          offset = Number(sharedBuff.writeBigUInt64BE(BigInt(data), offset));
           break;
         case DataTypes.INT64:
-          if (typeof data !== 'bigint') throw new Error('Invalid data type for INT64. Expected bigint.');
+          if (typeof data !== 'number' && typeof data !== 'bigint') throw new Error('Invalid data type for INT64. Expected number or bigint.');
           ensureSize(8);
-          offset = Number(sharedBuff.writeBigInt64BE(data, offset));
+          offset = Number(sharedBuff.writeBigInt64BE(BigInt(data), offset));
           break;
         case DataTypes.FLOAT:
           if (typeof data !== 'number') throw new Error('Invalid data type for FLOAT. Expected number.');
@@ -85,7 +85,7 @@ export const pack = (
           const dataBuff = data as Buffer;
           ensureSize(4 + dataBuff.length);
           offset = sharedBuff.writeInt32BE(dataBuff.length, offset);
-          dataBuff.copy(sharedBuff, offset);
+          dataBuff.copy(sharedBuff  as Uint8Array, offset);
           offset += dataBuff.length;
           break;
         case DataTypes.STRING: {
@@ -123,7 +123,7 @@ export const pack = (
 
   const finalBuffSize = offset + (conf.useCheckSum ? 2 : 0);
   const finalBuff = Buffer.alloc(finalBuffSize);
-  sharedBuff.copy(finalBuff, 0, 0, offset);
+  sharedBuff.copy(finalBuff as Uint8Array, 0, 0, offset);
 
   if (conf.useCheckSum || conf.useEncrypt) {
     let checksum = 0;

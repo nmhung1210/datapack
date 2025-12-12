@@ -271,12 +271,6 @@ describe("MetaPack test", () => {
     expect(() => pack("hello", INT32)).toThrow(
       "Invalid data type for INT32. Expected number."
     );
-    expect(() => pack(123, UINT64)).toThrow(
-      "Invalid data type for UINT64. Expected bigint."
-    );
-    expect(() => pack(123, INT64)).toThrow(
-      "Invalid data type for INT64. Expected bigint."
-    );
     expect(() => pack("hello", FLOAT)).toThrow(
       "Invalid data type for FLOAT. Expected number."
     );
