@@ -14,6 +14,12 @@ import {
   BINARY,
   UINT32,
   FLOAT,
+  packParallel,
+  packParts,
+  combinePackedParts,
+  splitPackedParts,
+  unpackPart,
+  unpackParallel,
 } from "./index";
 import expect from "expect";
 
@@ -321,5 +327,124 @@ describe("MetaPack test", () => {
     expect(() => unpack(pack(1, UINT8), null as any)).toThrow("Invalid schema!");
     expect(() => unpack(pack(1, UINT8), undefined as any)).toThrow("Invalid schema!");
     expect(unpack(pack(1, UINT8), "abc" as any)).toBeUndefined();
+  });
+});
+
+describe("Parallel pack test", () => {
+  const profileSchema = {
+    userId: UINT32,
+    nickName: STRING,
+    isVip: BOOL,
+    age: UINT8,
+  };
+
+  const stateDataSchema = {
+    users: [profileSchema],
+    posts: [
+      {
+        postId: UINT32,
+        title: STRING,
+        score: UINT16,
+        authors: [profileSchema],
+      },
+    ],
+  };
+
+  const stateData = {
+    users: [
+      { userId: 101, nickName: "ABC", isVip: true, age: 34 },
+      { userId: 103, nickName: "GHI", isVip: true, age: 22 },
+    ],
+    posts: [
+      {
+        postId: 100,
+        title: "Hello World!",
+        score: 999,
+        authors: [
+          { userId: 102, nickName: "DEF", isVip: false, age: 28 },
+        ],
+      },
+    ],
+  };
+
+  it("packParts + combinePackedParts should produce same result as pack", () => {
+    const opts = { useCheckSum: false, useEncrypt: false };
+    const sequential = pack(stateData, stateDataSchema, opts);
+    const parts = packParts(stateData, stateDataSchema as any);
+    const combined = combinePackedParts(parts, Object.keys(stateDataSchema), opts);
+    expect(combined).toEqual(sequential);
+
+    // Verify unpack works on combined result
+    const unpacked = unpack(combined, stateDataSchema, opts);
+    expect(unpacked).toEqual(stateData);
+  });
+
+  it("packParts + combinePackedParts should work with checksum and encryption", () => {
+    const opts = { useCheckSum: true, useEncrypt: true, secret: 42 };
+    const sequential = pack(stateData, stateDataSchema, opts);
+    const parts = packParts(stateData, stateDataSchema as any);
+    const combined = combinePackedParts(parts, Object.keys(stateDataSchema), opts);
+    expect(combined).toEqual(sequential);
+
+    const unpacked = unpack(combined, stateDataSchema, opts);
+    expect(unpacked).toEqual(stateData);
+  });
+
+  it("packParallel should produce same result as pack", async () => {
+    const opts = { useCheckSum: true, useEncrypt: true, secret: 42 };
+    const sequential = pack(stateData, stateDataSchema, opts);
+    const parallel = await packParallel(stateData, stateDataSchema, opts);
+    expect(parallel).toEqual(sequential);
+
+    const unpacked = unpack(parallel, stateDataSchema, opts);
+    expect(unpacked).toEqual(stateData);
+  });
+
+  it("packParallel should fallback for non-object schemas", async () => {
+    const result = await packParallel([1, 2, 3], [UINT8], { useCheckSum: false, useEncrypt: false });
+    const expected = pack([1, 2, 3], [UINT8], { useCheckSum: false, useEncrypt: false });
+    expect(result).toEqual(expected);
+  });
+
+  it("splitPackedParts should correctly split buffer into per-field slices", () => {
+    const opts = { useCheckSum: false, useEncrypt: false };
+    const packed = pack(stateData, stateDataSchema, opts);
+
+    const parts = splitPackedParts(packed, stateDataSchema as any, opts);
+    expect(Object.keys(parts)).toEqual(["users", "posts"]);
+
+    // Each part should unpack independently
+    const users = unpackPart(parts["users"], [profileSchema]);
+    expect(users).toEqual(stateData.users);
+
+    const posts = unpackPart(parts["posts"], [(stateDataSchema as any).posts[0]]);
+    expect(posts).toEqual(stateData.posts);
+  });
+
+  it("splitPackedParts should work with checksum and encryption", () => {
+    const opts = { useCheckSum: true, useEncrypt: true, secret: 42 };
+    const packed = pack(stateData, stateDataSchema, opts);
+
+    const parts = splitPackedParts(packed, stateDataSchema as any, opts);
+
+    const users = unpackPart(parts["users"], [profileSchema]);
+    expect(users).toEqual(stateData.users);
+  });
+
+  it("unpackParallel should produce same result as unpack", async () => {
+    const opts = { useCheckSum: true, useEncrypt: true, secret: 42 };
+    const packed = pack(stateData, stateDataSchema, opts);
+
+    const sequential = unpack(packed, stateDataSchema, opts);
+    const parallel = await unpackParallel(packed, stateDataSchema, opts);
+    expect(parallel).toEqual(sequential);
+    expect(parallel).toEqual(stateData);
+  });
+
+  it("unpackParallel should fallback for non-object schemas", async () => {
+    const opts = { useCheckSum: false, useEncrypt: false };
+    const packed = pack([1, 2, 3], [UINT8], opts);
+    const result = await unpackParallel(packed, [UINT8], opts);
+    expect(result).toEqual([1, 2, 3]);
   });
 });
