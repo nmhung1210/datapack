@@ -34,7 +34,8 @@ export const {
 export type Schema =
   | DataTypes
   | DataTypes[]
-  | { [name: string]: Schema | Schema[] | Schema[] };
+  | readonly DataTypes[]
+  | { [name: string]: Schema | Schema[] | readonly Schema[] };
 
 export type DataTypeMap = {
   [DataTypes.UINT8]: number;
@@ -52,14 +53,18 @@ export type DataTypeMap = {
   [DataTypes.OBJECT]: any;
 };
 
-export type SchemaToType<S extends Schema | Array<Schema>> = S extends DataTypes
-  ? DataTypeMap[S]
+type ResolveDataType<S extends DataTypes> = DataTypes extends S
+  ? number | string | boolean | bigint | Uint8Array
+  : DataTypeMap[S];
+
+export type SchemaToType<S extends Schema | ReadonlyArray<Schema>> = S extends DataTypes
+  ? ResolveDataType<S>
   : S extends object
-  ? S extends Array<infer U>
+  ? S extends ReadonlyArray<infer U>
     ? U extends Schema
       ? SchemaToType<U>[]
       : never
-    : { -readonly [K in keyof S]: S[K] extends Schema | Array<Schema> ? SchemaToType<S[K]> : never }
+    : { -readonly [K in keyof S]: S[K] extends Schema | ReadonlyArray<Schema> ? SchemaToType<S[K]> : never }
   : never;
 
 export interface IPackConfig {
@@ -88,6 +93,10 @@ export function setDefaultConfig(opts: IPackConfigOptions): void {
   if (opts.useEncrypt !== undefined) defaultConfig.useEncrypt = opts.useEncrypt;
   if (opts.useCheckSum !== undefined) defaultConfig.useCheckSum = opts.useCheckSum;
   if (opts.secret !== undefined) defaultConfig.secret = opts.secret;
+}
+
+export function defineSchema<const T extends Schema>(schema: T): T {
+  return schema;
 }
 
 const encoder = new TextEncoder();

@@ -11,7 +11,7 @@ import {
 const decoder = new TextDecoder();
 
 function doUnpack(
-  schema: Schema | Array<Schema>,
+  schema: Schema | ReadonlyArray<Schema>,
   buf: Uint8Array,
   view: DataView,
   ctx: { offset: number }
@@ -185,7 +185,7 @@ function skipSchema(
   }
 }
 
-export const unpack = <S extends Schema | Array<Schema>>(
+export const unpack = <const S extends Schema | ReadonlyArray<Schema>>(
   data: ArrayBufferLike | ArrayBuffer | Uint8Array | string,
   schema: S,
   opt?: IPackConfigOptions
@@ -347,7 +347,7 @@ export const splitPackedParts = (
  * Unpack a single field part (as returned by splitPackedParts).
  * No encryption/checksum handling — parts are already decrypted raw data.
  */
-export const unpackPart = <S extends Schema | Array<Schema>>(
+export const unpackPart = <const S extends Schema | ReadonlyArray<Schema>>(
   part: Uint8Array,
   schema: S,
 ): SchemaToType<S> => {
@@ -362,7 +362,7 @@ export const unpackPart = <S extends Schema | Array<Schema>>(
  *
  * Falls back to regular unpack if schema is not an object or has fewer than 2 keys.
  */
-export const unpackParallel = async <S extends Schema | Array<Schema>>(
+export const unpackParallel = async <const S extends Schema | ReadonlyArray<Schema>>(
   data: ArrayBufferLike | ArrayBuffer | Uint8Array | string,
   schema: S,
   opt?: IPackConfigOptions
