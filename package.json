@@ -14,6 +14,7 @@
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "browser": "dist/index.umd.js",
+  "type": "module",
   "files": [
     "dist",
     "README.md",
@@ -23,7 +24,9 @@
   "scripts": {
     "build": "rollup -c",
     "test": "ts-mocha -p tsconfig.test.json src/**/*.spec.ts",
-    "release": "npm version patch && git push && git push --tags",
+    "release:patch": "npm version patch && git push && git push --tags",
+    "release:minor": "npm version minor && git push && git push --tags",
+    "release:major": "npm version major && git push && git push --tags",
     "coverage": "nyc --exclude src/**/*.spec.ts ts-mocha -p tsconfig.test.json src/**/*.spec.ts",
     "benchmark": "ts-mocha -p tsconfig.test.json benchmark/benchmark.ts"
   },
@@ -37,23 +40,16 @@
     "url": "https://github.com/nmhung1210/datapack/issues"
   },
   "homepage": "https://github.com/nmhung1210/datapack#readme",
-  "dependencies": {
-    "buffer": "^6.0.3"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.4",
-    "@types/benchmark": "^2.1.5",
-    "@types/expect": "^24.3.0",
     "@types/mocha": "^9.1.0",
-    "@types/node": "^17.0.23",
     "benchmark": "^2.1.4",
     "nyc": "^17.1.0",
     "rollup": "^2.80.0",
-    "rollup-plugin-polyfill-node": "^0.13.0",
     "ts-mocha": "^9.0.2",
-    "tslib": "^2.8.1",
     "typescript": "^4.6.3"
   },
   "exports": {

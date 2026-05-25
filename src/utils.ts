@@ -1,6 +1,4 @@
 
-import { Buffer } from "buffer/index";
-
 export enum DataTypes {
   UINT8 = 0,
   UINT16,
@@ -49,7 +47,7 @@ export type DataTypeMap = {
   [DataTypes.INT64]: bigint;
   [DataTypes.BOOL]: boolean;
   [DataTypes.FLOAT]: number;
-  [DataTypes.BINARY]: Buffer;
+  [DataTypes.BINARY]: Uint8Array;
   [DataTypes.STRING]: string;
   [DataTypes.OBJECT]: any;
 };
@@ -84,3 +82,24 @@ export const defaultConfig: IPackConfig = {
   useCheckSum: true,
   secret: 1210
 };
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
+export function encodeUTF8(str: string): Uint8Array {
+  return encoder.encode(str);
+}
+
+export function decodeUTF8(bytes: Uint8Array, start?: number, end?: number): string {
+  return decoder.decode(bytes.subarray(start, end));
+}
+
+export function toUint8Array(data: ArrayBufferLike | ArrayBuffer | Uint8Array | string): Uint8Array {
+  if (data instanceof Uint8Array) {
+    return data;
+  }
+  if (typeof data === 'string') {
+    return encoder.encode(data);
+  }
+  return new Uint8Array(data as ArrayBuffer);
+}
