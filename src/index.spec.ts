@@ -16,7 +16,8 @@ import {
   FLOAT,
 } from "./index";
 import expect from "expect";
-import { Buffer } from "buffer";
+
+const encoder = new TextEncoder();
 
 describe("MetaPack test", () => {
   it("should return the same value that was unpacked from a packed", () => {
@@ -68,9 +69,9 @@ describe("MetaPack test", () => {
     const unpacked_INT64 = unpack(packed_INT64, INT64);
     expect(unpacked_INT64.toString()).toBe("-10000000000");
 
-    const packed_BINARY = pack(Buffer.from("abc"), BINARY);
+    const packed_BINARY = pack(encoder.encode("abc"), BINARY);
     const unpacked_BINARY = unpack(packed_BINARY, BINARY);
-    expect(unpacked_BINARY.toString()).toBe("abc");
+    expect(new TextDecoder().decode(unpacked_BINARY)).toBe("abc");
   });
 
   it("should return the same array value that was unpacked from a packed", () => {
@@ -207,7 +208,8 @@ describe("MetaPack test", () => {
     expect(unpack(pack([], emptyArraySchema), emptyArraySchema)).toEqual([]);
 
     // Empty Binary
-    expect(unpack(pack(Buffer.from([]), BINARY), BINARY).toString()).toBe("");
+    const emptyBinary = unpack(pack(new Uint8Array([]), BINARY), BINARY);
+    expect(emptyBinary.length).toBe(0);
   });
 
   it("should correctly pack and unpack with all combinations of checksum and encryption", () => {
@@ -275,26 +277,27 @@ describe("MetaPack test", () => {
       "Invalid data type for FLOAT. Expected number."
     );
     expect(() => pack(123, BINARY)).toThrow(
-      "Invalid data type for BINARY. Expected Buffer."
+      "Invalid data type for BINARY. Expected Uint8Array."
     );
 
     // 2. Unpacker: Buffer Overflows (should throw RangeError)
     const packed8 = pack(123, UINT8);
     expect(() => unpack(packed8, UINT16)).toThrow(RangeError);
 
-    const smallBuffer = Buffer.from([0, 0, 0, 10]); // Length 10, but no data
-    expect(() => unpack(smallBuffer, STRING)).toThrow(Error);
+    const smallBuffer = new Uint8Array([0, 0, 0, 10]); // Length 10, but no data
+    expect(() => unpack(smallBuffer, STRING, { useCheckSum: false, useEncrypt: false })).toThrow(RangeError);
 
     const packedArray = pack([1, 2], [UINT8]);
-    const malformedArray = Buffer.concat([
-      Buffer.from([0, 0, 0, 5]), // Say there are 5 elements
-      packedArray.slice(4), // but only provide 2
-    ]);
-    expect(() => unpack(malformedArray, [UINT8], { useCheckSum: false })).toThrow(RangeError);
+    const malformedArray = new Uint8Array(4 + packedArray.length - 4);
+    // Write length of 5 elements
+    new DataView(malformedArray.buffer).setUint32(0, 5, false);
+    // Copy the actual data (only 2 elements)
+    malformedArray.set(packedArray.subarray(4), 4);
+    expect(() => unpack(malformedArray, [UINT8], { useCheckSum: false, useEncrypt: false })).toThrow(RangeError);
 
     // 3. Unpacker: Invalid Package (checksum)
     expect(() =>
-      unpack(Buffer.from([1]), UINT8, { useCheckSum: true })
+      unpack(new Uint8Array([1]), UINT8, { useCheckSum: true })
     ).toThrow("Invalid package!");
 
     // 4. Unpacker: Data Mismatch (checksum)
@@ -306,14 +309,15 @@ describe("MetaPack test", () => {
       checksumSchema,
       checksumOptions
     );
-    const corruptedPacked = Buffer.from(packedWithChecksum);
-    corruptedPacked.writeInt16BE(999, corruptedPacked.length - 2); // Corrupt checksum
+    const corruptedPacked = new Uint8Array(packedWithChecksum);
+    const corruptedView = new DataView(corruptedPacked.buffer, corruptedPacked.byteOffset);
+    corruptedView.setInt16(corruptedPacked.length - 2, 999, false);
     expect(() =>
       unpack(corruptedPacked, checksumSchema, checksumOptions)
     ).toThrow(/Data mismatch!/);
 
     // 5. Unpacker: Graceful failures for empty/invalid schemas and data
-    expect(() => unpack(Buffer.from([]), UINT8)).toThrow("Invalid package!");
+    expect(() => unpack(new Uint8Array([]), UINT8)).toThrow("Invalid package!");
     expect(() => unpack(pack(1, UINT8), null as any)).toThrow("Invalid schema!");
     expect(() => unpack(pack(1, UINT8), undefined as any)).toThrow("Invalid schema!");
     expect(unpack(pack(1, UINT8), "abc" as any)).toBeUndefined();

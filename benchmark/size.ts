@@ -22,7 +22,7 @@ const simpleObjectData = {
 const packedSimpleObject = pack(simpleObjectData, simpleObjectSchema);
 const jsonStringSimpleObject = JSON.stringify(simpleObjectData);
 console.log('Simple object datapack size:', packedSimpleObject.length);
-console.log('Simple object JSON size:', Buffer.from(jsonStringSimpleObject).length);
+console.log('Simple object JSON size:', new TextEncoder().encode(jsonStringSimpleObject).length);
 
 
 // Scenario 2: Full sample with complex type
@@ -80,7 +80,7 @@ const packedComplexObject = pack(complexStateData, stateDataSchema);
 const jsonStringComplexObject = JSON.stringify(complexStateData);
 
 console.log('Complex object datapack size:', packedComplexObject.length);
-console.log('Complex object JSON size:', Buffer.from(jsonStringComplexObject).length);
+console.log('Complex object JSON size:', new TextEncoder().encode(jsonStringComplexObject).length);
 
 // Scenario 3: Big object with full data (around 1MB)
 const usersBig = [];
@@ -97,4 +97,4 @@ const packedBigObject = pack(bigStateData, stateDataSchema);
 const jsonStringBigObject = JSON.stringify(bigStateData);
 
 console.log('Big object datapack size:', packedBigObject.length);
-console.log('Big object JSON size:', Buffer.from(jsonStringBigObject).length);
+console.log('Big object JSON size:', new TextEncoder().encode(jsonStringBigObject).length);
