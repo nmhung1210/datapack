@@ -187,6 +187,24 @@ const unpacked = unpack(packed, schema, options);
 console.log(unpacked);
 ```
 
+### Default Configuration
+
+You can set global defaults so you don't need to pass options on every call:
+
+```javascript
+import { setDefaultConfig, pack, unpack, UINT8 } from "datapack";
+
+// Disable encryption and checksum globally
+setDefaultConfig({ useEncrypt: false, useCheckSum: false });
+
+// Now all pack/unpack calls use these defaults
+const packed = pack(42, UINT8);
+const unpacked = unpack(packed, UINT8);
+
+// You can still override per-call
+const encrypted = pack(42, UINT8, { useEncrypt: true, secret: 999 });
+```
+
 ### Parallel Pack/Unpack
 
 For large object schemas, you can pack and unpack each field independently. This enables parallelism when using Web Workers or `worker_threads`.
@@ -347,6 +365,7 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 |---|---|
 | `pack(data, schema, options?)` | Pack data into binary format |
 | `unpack(data, schema, options?)` | Unpack binary data back to JS values |
+| `setDefaultConfig(options)` | Set global default options for all pack/unpack calls |
 
 ### Parallel API
 

@@ -25,6 +25,8 @@ import {
   toUint8Array,
   PackerContext,
   doPackCtx,
+  setDefaultConfig,
+  defaultConfig,
 } from "./index";
 import expect from "expect";
 
@@ -784,5 +786,62 @@ describe("Branch coverage", () => {
     expect(Object.keys(parts).length).toEqual(6);
     expect(unpackPart(parts["a"], UINT64)).toEqual(BigInt(1));
     expect(unpackPart(parts["c"], FLOAT)).toBeCloseTo(3.14, 2);
+  });
+});
+
+describe("setDefaultConfig", () => {
+  // Save original config to restore after tests
+  const originalConfig = { ...defaultConfig };
+
+  afterEach(() => {
+    setDefaultConfig(originalConfig);
+  });
+
+  it("should change default encrypt/checksum behavior", () => {
+    setDefaultConfig({ useEncrypt: false, useCheckSum: false });
+
+    const data = { a: 42, b: "hello" };
+    const schema = { a: UINT8, b: STRING };
+    const packed = pack(data, schema);
+    const unpacked = unpack(packed, schema);
+    expect(unpacked).toEqual(data);
+
+    // Verify no checksum (packed size = raw data, no extra 2 bytes)
+    const packedWithChecksum = pack(data, schema, { useCheckSum: true, useEncrypt: false });
+    expect(packedWithChecksum.length).toEqual(packed.length + 2);
+  });
+
+  it("should change default secret", () => {
+    setDefaultConfig({ secret: 9999 });
+    expect(defaultConfig.secret).toEqual(9999);
+
+    const packed = pack(100, UINT8);
+    const unpacked = unpack(packed, UINT8);
+    expect(unpacked).toEqual(100);
+  });
+
+  it("should change default chunkSize", () => {
+    setDefaultConfig({ chunkSize: 2048 });
+    expect(defaultConfig.chunkSize).toEqual(2048);
+  });
+
+  it("should only update provided fields", () => {
+    setDefaultConfig({ useEncrypt: false });
+    expect(defaultConfig.useEncrypt).toEqual(false);
+    expect(defaultConfig.useCheckSum).toEqual(originalConfig.useCheckSum);
+    expect(defaultConfig.secret).toEqual(originalConfig.secret);
+  });
+
+  it("per-call options should override defaults", () => {
+    setDefaultConfig({ useEncrypt: false, useCheckSum: false });
+
+    const data = 42;
+    const opts = { useEncrypt: true, useCheckSum: true, secret: 555 };
+    const packed = pack(data, UINT8, opts);
+    // Should fail to unpack with wrong secret
+    expect(() => unpack(packed, UINT8, { useEncrypt: true, useCheckSum: true, secret: 999 })).toThrow("Data mismatch!");
+    // Should succeed with matching options
+    const unpacked = unpack(packed, UINT8, opts);
+    expect(unpacked).toEqual(42);
   });
 });

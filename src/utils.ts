@@ -83,6 +83,13 @@ export const defaultConfig: IPackConfig = {
   secret: 1210
 };
 
+export function setDefaultConfig(opts: IPackConfigOptions): void {
+  if (opts.chunkSize !== undefined) defaultConfig.chunkSize = opts.chunkSize;
+  if (opts.useEncrypt !== undefined) defaultConfig.useEncrypt = opts.useEncrypt;
+  if (opts.useCheckSum !== undefined) defaultConfig.useCheckSum = opts.useCheckSum;
+  if (opts.secret !== undefined) defaultConfig.secret = opts.secret;
+}
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
