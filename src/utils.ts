@@ -101,8 +101,5 @@ export function toUint8Array(data: ArrayBufferLike | ArrayBuffer | Uint8Array | 
   if (typeof data === 'string') {
     return encoder.encode(data);
   }
-  if (data instanceof ArrayBuffer) {
-    return new Uint8Array(data);
-  }
-  return new Uint8Array(data);
+  return new Uint8Array(data as ArrayBuffer);
 }
