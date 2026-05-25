@@ -40,13 +40,13 @@
     "url": "https://github.com/nmhung1210/datapack/issues"
   },
   "homepage": "https://github.com/nmhung1210/datapack#readme",
-  "dependencies": {},
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.4",
     "@types/mocha": "^9.1.0",
     "benchmark": "^2.1.4",
+    "expect": "^30.4.1",
     "nyc": "^17.1.0",
     "rollup": "^2.80.0",
     "ts-mocha": "^9.0.2",
