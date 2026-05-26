@@ -34,12 +34,16 @@
     "type": "git",
     "url": "git+https://github.com/nmhung1210/datapack.git"
   },
-  "author": "",
+  "author": "nmhung1210",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/nmhung1210/datapack/issues"
   },
   "homepage": "https://github.com/nmhung1210/datapack#readme",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=14"
+  },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
