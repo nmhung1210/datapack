@@ -15,27 +15,25 @@ export enum DataTypes {
   OBJECT,
 }
 
-export const {
-  UINT8,
-  UINT16,
-  UINT32,
-  UINT64,
-  INT8,
-  INT16,
-  INT32,
-  INT64,
-  BOOL,
-  FLOAT,
-  BINARY,
-  STRING,
-  OBJECT,
-} = DataTypes;
+export const UINT8 = DataTypes.UINT8 as const;
+export const UINT16 = DataTypes.UINT16 as const;
+export const UINT32 = DataTypes.UINT32 as const;
+export const UINT64 = DataTypes.UINT64 as const;
+export const INT8 = DataTypes.INT8 as const;
+export const INT16 = DataTypes.INT16 as const;
+export const INT32 = DataTypes.INT32 as const;
+export const INT64 = DataTypes.INT64 as const;
+export const BOOL = DataTypes.BOOL as const;
+export const FLOAT = DataTypes.FLOAT as const;
+export const BINARY = DataTypes.BINARY as const;
+export const STRING = DataTypes.STRING as const;
+export const OBJECT = DataTypes.OBJECT as const;
 
 export type Schema =
   | DataTypes
-  | DataTypes[]
-  | readonly DataTypes[]
-  | { [name: string]: Schema | Schema[] | readonly Schema[] };
+  | Schema[]
+  | readonly Schema[]
+  | { [name: string]: Schema };
 
 export type DataTypeMap = {
   [DataTypes.UINT8]: number;
@@ -50,22 +48,20 @@ export type DataTypeMap = {
   [DataTypes.FLOAT]: number;
   [DataTypes.BINARY]: Uint8Array;
   [DataTypes.STRING]: string;
-  [DataTypes.OBJECT]: any;
+  [DataTypes.OBJECT]: object;
 };
 
 type ResolveDataType<S extends DataTypes> = DataTypes extends S
-  ? number | string | boolean | bigint | Uint8Array
+  ? number | string | boolean | bigint | Uint8Array | object
   : DataTypeMap[S];
 
-export type SchemaToType<S extends Schema | ReadonlyArray<Schema>> = S extends DataTypes
+export type SchemaToType<S> = S extends DataTypes
   ? ResolveDataType<S>
-  : S extends object
-  ? S extends ReadonlyArray<infer U>
-    ? U extends Schema
-      ? SchemaToType<U>[]
-      : never
-    : { -readonly [K in keyof S]: S[K] extends Schema | ReadonlyArray<Schema> ? SchemaToType<S[K]> : never }
-  : never;
+  : S extends ReadonlyArray<infer U>
+    ? SchemaToType<U>[]
+    : S extends object
+      ? { [K in keyof S]: SchemaToType<S[K]> }
+      : never;
 
 export interface IPackConfig {
   chunkSize: number;
