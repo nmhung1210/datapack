@@ -435,7 +435,7 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 |---|---|---|---|
 | `useCheckSum` | boolean | `true` | Append a 2-byte position-weighted checksum for integrity validation |
 | `useEncrypt` | boolean | `true` | Apply a position-dependent byte-level shift cipher |
-| `secret` | number | `1210` | Encryption key (must match between pack and unpack) |
+| `secret` | number | `1210` | Encryption key — must be an integer and match between pack and unpack |
 | `chunkSize` | number | `10240` | Initial pack buffer size in bytes; grows automatically as needed |
 
 ### Data Types

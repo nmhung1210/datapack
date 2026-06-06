@@ -467,6 +467,69 @@ describe("Integer range validation", () => {
     expect(unpack(pack(4294967295, UINT32, opts), UINT32, opts)).toBe(4294967295);
     expect(unpack(pack(-2147483648, INT32, opts), INT32, opts)).toBe(-2147483648);
   });
+
+  it("should reject out-of-range and non-integer 64-bit values", () => {
+    expect(() => pack(BigInt(-1), UINT64)).toThrow(RangeError);
+    expect(() => pack(BigInt("18446744073709551616"), UINT64)).toThrow(RangeError);
+    expect(() => pack(1.5, UINT64)).toThrow(RangeError);
+    expect(() => pack(BigInt("9223372036854775808"), INT64)).toThrow(RangeError);
+    expect(() => pack(BigInt("-9223372036854775809"), INT64)).toThrow(RangeError);
+    expect(() => pack(1.5, INT64)).toThrow(RangeError);
+  });
+
+  it("should accept exact 64-bit boundary values", () => {
+    const opts = { useCheckSum: false, useEncrypt: false };
+    const uMax = BigInt("18446744073709551615");
+    const iMin = BigInt("-9223372036854775808");
+    const iMax = BigInt("9223372036854775807");
+    expect(unpack(pack(uMax, UINT64, opts), UINT64, opts)).toBe(uMax);
+    expect(unpack(pack(BigInt(0), UINT64, opts), UINT64, opts)).toBe(BigInt(0));
+    expect(unpack(pack(iMin, INT64, opts), INT64, opts)).toBe(iMin);
+    expect(unpack(pack(iMax, INT64, opts), INT64, opts)).toBe(iMax);
+  });
+});
+
+describe("secret validation", () => {
+  it("should reject a non-integer secret", () => {
+    expect(() => pack(1, UINT8, { secret: 1.5 })).toThrow(RangeError);
+    expect(() => unpack(pack(1, UINT8), UINT8, { secret: 1.5 })).toThrow(RangeError);
+  });
+
+  it("should accept negative and large integer secrets", () => {
+    const data = { a: 200, b: "round-trip" };
+    const schema = { a: UINT8, b: STRING };
+    for (const secret of [-99999, 0, 7, 2 ** 31]) {
+      const opts = { useEncrypt: true, useCheckSum: true, secret };
+      expect(unpack(pack(data, schema, opts), schema, opts)).toEqual(data);
+    }
+  });
+});
+
+describe("Large-payload checksum exactness", () => {
+  // Exceeds the point where an unreduced weighted-sum accumulator would lose
+  // float64 precision (~8.4M bytes), verifying the block-reduced loops stay
+  // exact and that corruption is still detected at this size.
+  it("should round-trip and detect corruption on a ~10MB payload", function () {
+    this.timeout(30000);
+    const n = 10_000_000;
+    const data = new Uint8Array(n);
+    for (let i = 0; i < n; i++) data[i] = (i * 31 + 7) & 0xFF;
+
+    const csumOpts = { useCheckSum: true, useEncrypt: false };
+    const packedC = pack(data, BINARY, csumOpts);
+    expect(unpack(packedC, BINARY, csumOpts)).toEqual(data);
+    const corruptC = new Uint8Array(packedC);
+    corruptC[1000] ^= 0xFF;
+    expect(() => unpack(corruptC, BINARY, csumOpts)).toThrow("Data mismatch!");
+
+    // Encrypted path >5M routes through the block-reducing decodeBuffer.
+    const bothOpts = { useCheckSum: true, useEncrypt: true, secret: 17 };
+    const packedB = pack(data, BINARY, bothOpts);
+    expect(unpack(packedB, BINARY, bothOpts)).toEqual(data);
+    const corruptB = new Uint8Array(packedB);
+    corruptB[5_000_000] ^= 0xFF;
+    expect(() => unpack(corruptB, BINARY, bothOpts)).toThrow("Data mismatch!");
+  });
 });
 
 describe("Checksum (position-weighted byte sum)", () => {
