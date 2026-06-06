@@ -13,7 +13,7 @@ A high-performance JavaScript library for packing and unpacking binary data with
 - **Schema-driven** — describe your data once with plain objects, arrays, and `DataTypes` constants.
 - **Full TypeScript inference** — `unpack` returns a type derived from your schema, no manual annotations needed.
 - **14 data types** — fixed-width integers (8/16/32/64-bit, signed and unsigned), 32- and 64-bit floats, booleans, UTF-8 strings, raw binary, and arbitrary JSON objects.
-- **Optional integrity & obfuscation** — a position-weighted checksum to detect corruption and a byte-level shift cipher, both opt-out.
+- **Optional integrity & obfuscation** — a position-weighted checksum to detect corruption and a keystream byte cipher, both opt-out.
 - **Range validation** — out-of-range or non-integer values are rejected at pack time with a `RangeError` instead of silently truncating.
 - **Parallel-friendly** — pack/unpack object fields independently for use with Web Workers or `worker_threads`.
 - **Zero dependencies** — built on native `Uint8Array`, `DataView`, `TextEncoder`, and `TextDecoder`.
@@ -215,7 +215,7 @@ console.log(unpacked);
 How the options behave on the wire:
 
 - **`useCheckSum`** appends a 2-byte, big-endian checksum computed as a *position-weighted* byte sum (`Σ byte[i] * (i + 1)`, mod 65536). Unlike a plain byte sum it is sensitive to byte transpositions and shifts, so reordered or moved bytes are detected. A mismatch throws `Data mismatch!` on unpack.
-- **`useEncrypt`** applies a reversible, position-dependent byte shift (`byte + index + secret`, mod 256). It is lightweight obfuscation, not cryptographically secure — use TLS or a real cipher for sensitive data. Pack and unpack must use the same `secret`.
+- **`useEncrypt`** shifts each byte by a position-keyed keystream byte derived from `secret` (`byte + keystream(secret, index)`, mod 256), reversed on unpack. The keystream uses an avalanche hash of the seed and position, so identical plaintext bytes encrypt to unrelated values and the shift isn't linearly predictable. It is still lightweight obfuscation, not cryptographically secure — use TLS or a real cipher for sensitive data. Pack and unpack must use the same `secret`.
 - When both are enabled, the checksum is computed over the plaintext, then the bytes are encrypted; unpack decrypts first and then validates.
 
 ### Range Validation
@@ -397,7 +397,7 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 
 **Cost of the optional layers** (relative to bare pack/unpack, measured on the same scenarios):
 - **Checksum** (position-weighted byte sum) adds ~5% on small payloads, scaling to ~20-25% on a 1MB object — one extra O(n) arithmetic pass.
-- **Encryption** (position-dependent byte shift) is nearly free on pack and, on unpack, often *faster* than the plain path thanks to the fused inline-decrypt parser.
+- **Encryption** (position-keyed keystream byte shift) is nearly free on pack and, on unpack, often *faster* than the plain path thanks to the fused inline-decrypt parser.
 
 ### Packed Size Comparison
 
@@ -434,7 +434,7 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 | Option | Type | Default | Description |
 |---|---|---|---|
 | `useCheckSum` | boolean | `true` | Append a 2-byte position-weighted checksum for integrity validation |
-| `useEncrypt` | boolean | `true` | Apply a position-dependent byte-level shift cipher |
+| `useEncrypt` | boolean | `true` | Apply a position-keyed keystream byte-shift cipher |
 | `secret` | number | `1210` | Encryption key — must be an integer and match between pack and unpack |
 | `chunkSize` | number | `10240` | Initial pack buffer size in bytes; grows automatically as needed |
 

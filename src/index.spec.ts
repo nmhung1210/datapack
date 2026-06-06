@@ -29,6 +29,7 @@ import {
   setDefaultConfig,
   defaultConfig,
   defineSchema,
+  keystreamByte,
 } from "./index";
 import expect from "expect";
 
@@ -502,6 +503,45 @@ describe("secret validation", () => {
       const opts = { useEncrypt: true, useCheckSum: true, secret };
       expect(unpack(pack(data, schema, opts), schema, opts)).toEqual(data);
     }
+  });
+});
+
+describe("keystream encryption", () => {
+  it("should produce a byte in range and depend on both seed and position", () => {
+    for (let i = 0; i < 100; i++) {
+      const k = keystreamByte(1210, i);
+      expect(k).toBeGreaterThanOrEqual(0);
+      expect(k).toBeLessThanOrEqual(255);
+    }
+    // Different positions and different seeds give different keystream bytes.
+    expect(keystreamByte(1210, 0)).not.toEqual(keystreamByte(1210, 1));
+    expect(keystreamByte(1210, 5)).not.toEqual(keystreamByte(1211, 5));
+  });
+
+  it("should be non-linear (not the old i+secret shift) so identical plaintext bytes encrypt differently", () => {
+    // A run of identical bytes must not produce a simple arithmetic ramp.
+    const data = new Uint8Array(16).fill(100);
+    const opts = { useEncrypt: true, useCheckSum: false, secret: 42 };
+    const packed = pack(data, BINARY, opts);
+    // Skip the 4-byte length prefix; inspect the encrypted payload.
+    const cipher = packed.subarray(4);
+    const diffs = new Set<number>();
+    for (let i = 1; i < cipher.length; i++) {
+      diffs.add((cipher[i] - cipher[i - 1]) & 0xFF);
+    }
+    // A linear shift would make every consecutive diff identical (size 1).
+    expect(diffs.size).toBeGreaterThan(1);
+    expect(unpack(packed, BINARY, opts)).toEqual(data);
+  });
+
+  it("should fail to decrypt with the wrong secret", () => {
+    // Fixed-width payload: a wrong secret yields garbage that the checksum
+    // catches (a variable-width one may instead overrun on a garbled length).
+    const data = { a: 123, b: 45678 };
+    const schema = { a: UINT8, b: UINT32 };
+    const packed = pack(data, schema, { useEncrypt: true, useCheckSum: true, secret: 1000 });
+    expect(() => unpack(packed, schema, { useEncrypt: true, useCheckSum: true, secret: 1001 }))
+      .toThrow("Data mismatch!");
   });
 });
 
