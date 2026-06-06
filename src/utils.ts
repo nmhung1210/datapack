@@ -82,11 +82,18 @@ export const defaultConfig: IPackConfig = {
 };
 
 export function setDefaultConfig(opts: IPackConfigOptions): void {
-  if (opts.chunkSize !== undefined) defaultConfig.chunkSize = opts.chunkSize;
-  if (opts.useEncrypt !== undefined) defaultConfig.useEncrypt = opts.useEncrypt;
-  if (opts.useCheckSum !== undefined)
+  if (opts.chunkSize !== undefined) {
+    defaultConfig.chunkSize = opts.chunkSize;
+  }
+  if (opts.useEncrypt !== undefined) {
+    defaultConfig.useEncrypt = opts.useEncrypt;
+  }
+  if (opts.useCheckSum !== undefined) {
     defaultConfig.useCheckSum = opts.useCheckSum;
-  if (opts.secret !== undefined) defaultConfig.secret = opts.secret;
+  }
+  if (opts.secret !== undefined) {
+    defaultConfig.secret = opts.secret;
+  }
 }
 
 export function defineSchema<const T extends Schema>(schema: T): T {

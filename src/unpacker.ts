@@ -38,8 +38,9 @@ type DecState = { offset: number; sum: number; end: number; secret: number };
 /** Decrypt `n` bytes at the cursor into `scratch`, accumulating the checksum. */
 function decScratch(buff: Uint8Array, st: DecState, n: number): void {
   const p = st.offset;
-  if (p + n > st.end)
+  if (p + n > st.end) {
     throw new RangeError("Attempt to access memory outside buffer bounds");
+  }
   let sum = st.sum;
   const secret = st.secret;
   for (let k = 0; k < n; k++) {
@@ -58,8 +59,9 @@ function decScratch(buff: Uint8Array, st: DecState, n: number): void {
  */
 function decVar(buff: Uint8Array, st: DecState, len: number): boolean {
   const p = st.offset;
-  if (p + len > st.end)
+  if (p + len > st.end) {
     throw new RangeError("Attempt to access memory outside buffer bounds");
+  }
   let sum = st.sum;
   const secret = st.secret;
   let ascii = 0;
@@ -82,8 +84,9 @@ function decInto(
   len: number,
 ): void {
   const p = st.offset;
-  if (p + len > st.end)
+  if (p + len > st.end) {
     throw new RangeError("Attempt to access memory outside buffer bounds");
+  }
   let sum = st.sum;
   const secret = st.secret;
   for (let k = 0; k < len; k++) {
@@ -145,13 +148,16 @@ function doUnpackDec(
       case DataTypes.STRING: {
         decScratch(buff, st, 4);
         const length = scratchView.getUint32(0, false);
-        if (length > varScratch.length) varScratch = new Uint8Array(length);
+        if (length > varScratch.length) {
+          varScratch = new Uint8Array(length);
+        }
         const isAscii = decVar(buff, st, length); // decrypts into varScratch
         if (isAscii) {
           if (length < 64) {
             let str = "";
-            for (let i = 0; i < length; i++)
+            for (let i = 0; i < length; i++) {
               str += String.fromCharCode(varScratch[i]);
+            }
             return str;
           }
           return String.fromCharCode.apply(
@@ -164,7 +170,9 @@ function doUnpackDec(
       case DataTypes.OBJECT: {
         decScratch(buff, st, 4);
         const length = scratchView.getUint32(0, false);
-        if (length > varScratch.length) varScratch = new Uint8Array(length);
+        if (length > varScratch.length) {
+          varScratch = new Uint8Array(length);
+        }
         decVar(buff, st, length);
         return JSON.parse(decoder.decode(varScratch.subarray(0, length)));
       }
@@ -318,10 +326,11 @@ function doUnpack(
       case DataTypes.BINARY: {
         const length = view.getUint32(ctx.offset, false);
         ctx.offset += 4;
-        if (ctx.offset + length > buf.length)
+        if (ctx.offset + length > buf.length) {
           throw new RangeError(
             "Attempt to access memory outside buffer bounds",
           );
+        }
         val = buf.slice(ctx.offset, ctx.offset + length);
         ctx.offset += length;
         return val;
@@ -329,10 +338,11 @@ function doUnpack(
       case DataTypes.STRING: {
         const length = view.getUint32(ctx.offset, false);
         ctx.offset += 4;
-        if (ctx.offset + length > buf.length)
+        if (ctx.offset + length > buf.length) {
           throw new RangeError(
             "Attempt to access memory outside buffer bounds",
           );
+        }
         // Fast path for ASCII
         const strStart = ctx.offset;
         let isAscii = true;
@@ -362,10 +372,11 @@ function doUnpack(
       case DataTypes.OBJECT: {
         const length = view.getUint32(ctx.offset, false);
         ctx.offset += 4;
-        if (ctx.offset + length > buf.length)
+        if (ctx.offset + length > buf.length) {
           throw new RangeError(
             "Attempt to access memory outside buffer bounds",
           );
+        }
         val = JSON.parse(
           decoder.decode(buf.subarray(ctx.offset, ctx.offset + length)),
         );
@@ -439,10 +450,11 @@ function skipSchema(
       case DataTypes.BINARY:
       case DataTypes.STRING:
       case DataTypes.OBJECT: {
-        if (ctx.offset + 4 > buf.length)
+        if (ctx.offset + 4 > buf.length) {
           throw new RangeError(
             "Attempt to access memory outside buffer bounds",
           );
+        }
         const length = view.getUint32(ctx.offset, false);
         ctx.offset += 4 + length;
         break;
@@ -450,8 +462,9 @@ function skipSchema(
       default:
         throw new Error("Invalid schema!");
     }
-    if (ctx.offset > buf.length)
+    if (ctx.offset > buf.length) {
       throw new RangeError("Attempt to access memory outside buffer bounds");
+    }
     return;
   }
 

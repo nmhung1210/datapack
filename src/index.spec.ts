@@ -594,7 +594,9 @@ describe("Large-payload checksum exactness", () => {
     this.timeout(30000);
     const n = 10_000_000;
     const data = new Uint8Array(n);
-    for (let i = 0; i < n; i++) data[i] = (i * 31 + 7) & 0xff;
+    for (let i = 0; i < n; i++) {
+      data[i] = (i * 31 + 7) & 0xff;
+    }
 
     const csumOpts = { useCheckSum: true, useEncrypt: false };
     const packedC = pack(data, BINARY, csumOpts);

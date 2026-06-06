@@ -35,4 +35,13 @@ export default tseslint.config(
     },
   },
   prettier,
+  {
+    // Re-enable `curly` after eslint-config-prettier (which disables it):
+    // requiring braces is a style choice that does not conflict with Prettier's
+    // formatting, so we keep it enforced on all control-flow blocks.
+    files: ["src/**/*.ts", "benchmark/**/*.ts"],
+    rules: {
+      curly: ["error", "all"],
+    },
+  },
 );
