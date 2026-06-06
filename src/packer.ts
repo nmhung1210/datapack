@@ -1,6 +1,7 @@
 import {
   DataTypes,
   Schema,
+  UNDEFINED,
   IPackConfigOptions,
   resolveConfig,
   computeChecksum,
@@ -45,6 +46,20 @@ export function doPackCtx(
   schema: Schema | Array<Schema>,
 ) {
   if (typeof schema === "number") {
+    // An optional schema (base type OR'd with the UNDEFINED bit) writes a
+    // presence byte first; the base type's value bytes follow only when present.
+    if (schema & UNDEFINED) {
+      const present = data !== undefined && data !== null;
+      if (ctx.offset + 1 > ctx.buf.length) {
+        ctx.grow(1);
+      }
+      ctx.view.setUint8(ctx.offset, present ? 1 : 0);
+      ctx.offset += 1;
+      if (present) {
+        doPackCtx(ctx, data, schema & ~UNDEFINED);
+      }
+      return;
+    }
     switch (schema) {
       case DataTypes.UINT8:
         if (typeof data !== "number") {
