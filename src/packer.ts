@@ -101,6 +101,12 @@ export function doPackCtx(ctx: PackerContext, data: any, schema: Schema | Array<
         ctx.view.setFloat32(ctx.offset, data, false);
         ctx.offset += 4;
         return;
+      case DataTypes.FLOAT64:
+        if (typeof data !== 'number') throw new Error('Invalid data type for FLOAT64. Expected number.');
+        if (ctx.offset + 8 > ctx.buf.length) ctx.grow(8);
+        ctx.view.setFloat64(ctx.offset, data, false);
+        ctx.offset += 8;
+        return;
       case DataTypes.BINARY: {
         if (!(data instanceof Uint8Array)) throw new Error('Invalid data type for BINARY. Expected Uint8Array.');
         const len = data.length;
