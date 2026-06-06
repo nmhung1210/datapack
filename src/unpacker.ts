@@ -59,6 +59,10 @@ function doUnpack(
         val = view.getFloat32(ctx.offset, false);
         ctx.offset += 4;
         return val;
+      case DataTypes.FLOAT64:
+        val = view.getFloat64(ctx.offset, false);
+        ctx.offset += 8;
+        return val;
       case DataTypes.BINARY: {
         const length = view.getUint32(ctx.offset, false);
         ctx.offset += 4;
@@ -156,6 +160,7 @@ function skipSchema(
         return;
       case DataTypes.UINT64:
       case DataTypes.INT64:
+      case DataTypes.FLOAT64:
         ctx.offset += 8;
         return;
       case DataTypes.BINARY:

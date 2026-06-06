@@ -13,6 +13,7 @@ export enum DataTypes {
   BINARY,
   STRING,
   OBJECT,
+  FLOAT64,
 }
 
 export const UINT8 = DataTypes.UINT8 as const;
@@ -25,6 +26,7 @@ export const INT32 = DataTypes.INT32 as const;
 export const INT64 = DataTypes.INT64 as const;
 export const BOOL = DataTypes.BOOL as const;
 export const FLOAT = DataTypes.FLOAT as const;
+export const FLOAT64 = DataTypes.FLOAT64 as const;
 export const BINARY = DataTypes.BINARY as const;
 export const STRING = DataTypes.STRING as const;
 export const OBJECT = DataTypes.OBJECT as const;
@@ -46,6 +48,7 @@ export type DataTypeMap = {
   [DataTypes.INT64]: bigint;
   [DataTypes.BOOL]: boolean;
   [DataTypes.FLOAT]: number;
+  [DataTypes.FLOAT64]: number;
   [DataTypes.BINARY]: Uint8Array;
   [DataTypes.STRING]: string;
   [DataTypes.OBJECT]: object;

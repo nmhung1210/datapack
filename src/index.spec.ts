@@ -14,6 +14,7 @@ import {
   BINARY,
   UINT32,
   FLOAT,
+  FLOAT64,
   packParallel,
   packParts,
   combinePackedParts,
@@ -57,6 +58,10 @@ describe("MetaPack test", () => {
     const packed_FLOAT = pack(123.456, FLOAT);
     const unpacked_FLOAT = unpack(packed_FLOAT, FLOAT);
     expect(unpacked_FLOAT).toBeCloseTo(123.456, 3);
+
+    const packed_FLOAT64 = pack(123.456, FLOAT64);
+    const unpacked_FLOAT64 = unpack(packed_FLOAT64, FLOAT64);
+    expect(unpacked_FLOAT64).toBe(123.456);
 
     const packed_BOOL_true = pack(true, BOOL);
     const unpacked_BOOL_true = unpack(packed_BOOL_true, BOOL);
@@ -334,6 +339,103 @@ describe("MetaPack test", () => {
     expect(() => unpack(pack(1, UINT8), null as any)).toThrow("Invalid schema!");
     expect(() => unpack(pack(1, UINT8), undefined as any)).toThrow("Invalid schema!");
     expect(unpack(pack(1, UINT8), "abc" as any)).toBeUndefined();
+  });
+});
+
+describe("FLOAT64 (double precision) coverage", () => {
+  const opts = { useCheckSum: false, useEncrypt: false };
+
+  it("should preserve full double precision (where FLOAT32 cannot)", () => {
+    const value = 3.141592653589793; // more precision than a 32-bit float holds
+    const packed = pack(value, FLOAT64);
+    const unpacked = unpack(packed, FLOAT64);
+    // Exact equality — no precision loss
+    expect(unpacked).toBe(value);
+
+    // FLOAT (32-bit) loses precision on the same value
+    const float32 = unpack(pack(value, FLOAT), FLOAT);
+    expect(float32).not.toBe(value);
+  });
+
+  it("should use 8 bytes on the wire", () => {
+    const ctx = new PackerContext(0);
+    doPackCtx(ctx, 1.5, FLOAT64);
+    expect(ctx.getResult().length).toEqual(8);
+  });
+
+  it("should handle numeric edge cases", () => {
+    const cases = [
+      0,
+      -0,
+      1,
+      -1,
+      0.1,
+      -0.000123456789,
+      Number.MAX_SAFE_INTEGER + 0.5,
+      Number.MAX_VALUE,
+      Number.MIN_VALUE,
+      1e308,
+      -1e308,
+      Math.PI,
+      Math.E,
+    ];
+    for (const value of cases) {
+      const unpacked = unpack(pack(value, FLOAT64), FLOAT64);
+      expect(unpacked).toBe(value);
+    }
+  });
+
+  it("should handle Infinity, -Infinity and NaN", () => {
+    expect(unpack(pack(Infinity, FLOAT64), FLOAT64)).toBe(Infinity);
+    expect(unpack(pack(-Infinity, FLOAT64), FLOAT64)).toBe(-Infinity);
+    expect(Number.isNaN(unpack(pack(NaN, FLOAT64), FLOAT64))).toBe(true);
+  });
+
+  it("should throw for non-number input", () => {
+    expect(() => pack("x", FLOAT64)).toThrow(
+      "Invalid data type for FLOAT64. Expected number."
+    );
+  });
+
+  it("should work inside arrays", () => {
+    const schema = [FLOAT64];
+    const value = [1.1, 2.2, 3.3, 4.4];
+    const packed = pack(value, schema, opts);
+    const unpacked = unpack(packed, schema, opts);
+    expect(unpacked).toEqual(value);
+  });
+
+  it("should work inside nested objects", () => {
+    const schema = { lat: FLOAT64, lng: FLOAT64, meta: { alt: FLOAT64 } };
+    const value = { lat: 51.50735090000001, lng: -0.12775829999998223, meta: { alt: 35.123456789 } };
+    const packed = pack(value, schema, opts);
+    const unpacked = unpack(packed, schema, opts);
+    expect(unpacked).toEqual(value);
+  });
+
+  it("should round-trip with checksum and encryption", () => {
+    const value = 9876.543210123456;
+    const finalOpts = { useCheckSum: true, useEncrypt: true, secret: 42 };
+    const packed = pack(value, FLOAT64, finalOpts);
+    const unpacked = unpack(packed, FLOAT64, finalOpts);
+    expect(unpacked).toBe(value);
+  });
+
+  it("should be skipped correctly by splitPackedParts", () => {
+    const schema = { a: FLOAT64, b: STRING };
+    const data = { a: 2.718281828459045, b: "after" };
+    const packed = pack(data, schema, opts);
+    const parts = splitPackedParts(packed, schema as any, opts);
+    // The FLOAT64 field must consume exactly 8 bytes so the next field aligns
+    expect(parts["a"].length).toEqual(8);
+    expect(unpackPart(parts["a"], FLOAT64)).toBe(data.a);
+    expect(unpackPart(parts["b"], STRING)).toBe(data.b);
+  });
+
+  it("should trigger buffer grow with a tiny context", () => {
+    const ctx = new PackerContext(0);
+    doPackCtx(ctx, 6.022e23, FLOAT64);
+    expect(unpackPart(ctx.getResult(), FLOAT64)).toBe(6.022e23);
   });
 });
 
