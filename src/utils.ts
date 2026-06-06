@@ -13,7 +13,42 @@ export enum DataTypes {
   STRING,
   OBJECT,
   FLOAT64,
+
+  // Optional variants of each primitive type, i.e. `<TYPE> | UNDEFINED`. The
+  // UNDEFINED marker bit (0x100) sits above every type tag, so the base type is
+  // recoverable with `schema & ~UNDEFINED`. These exist as named members (rather
+  // than inline bitwise-OR expressions) so that in a schema they keep a literal
+  // enum type instead of widening to `number` — which is what lets
+  // `SchemaToType` infer `T | undefined` for optional fields. Use the exported
+  // `_UINT8` etc. aliases, or write `UINT8 | UNDEFINED` directly when precise
+  // typing is not needed. On the wire an optional value is prefixed with a
+  // presence byte (1 = present, 0 = absent); when absent no value bytes follow
+  // and it unpacks back to `undefined`. Both `undefined` and `null` pack as
+  // absent.
+  _UINT8 = UINT8 | 0x100,
+  _UINT16 = UINT16 | 0x100,
+  _UINT32 = UINT32 | 0x100,
+  _UINT64 = UINT64 | 0x100,
+  _INT8 = INT8 | 0x100,
+  _INT16 = INT16 | 0x100,
+  _INT32 = INT32 | 0x100,
+  _INT64 = INT64 | 0x100,
+  _BOOL = BOOL | 0x100,
+  _FLOAT = FLOAT | 0x100,
+  _BINARY = BINARY | 0x100,
+  _STRING = STRING | 0x100,
+  _OBJECT = OBJECT | 0x100,
+  _FLOAT64 = FLOAT64 | 0x100,
 }
+
+/**
+ * Optional marker bit. OR it with any primitive type to allow the value to be
+ * absent: `{ data: UINT8 | UNDEFINED }`. Equivalent to the `_UINT8` alias, but
+ * the bitwise-OR widens to `number` so the field is not inferred as
+ * `T | undefined` (use the `_TYPE` aliases when precise typing matters). Kept
+ * out of `DataTypes` because it is a flag, not a data type of its own.
+ */
+export const UNDEFINED = 0x100 as const;
 
 export const UINT8 = DataTypes.UINT8 as const;
 export const UINT16 = DataTypes.UINT16 as const;
@@ -29,6 +64,23 @@ export const FLOAT64 = DataTypes.FLOAT64 as const;
 export const BINARY = DataTypes.BINARY as const;
 export const STRING = DataTypes.STRING as const;
 export const OBJECT = DataTypes.OBJECT as const;
+
+// Optional aliases — `_TYPE` is `TYPE | UNDEFINED` with its literal type kept,
+// so `{ data: _UINT8 }` infers `number | undefined` on unpack.
+export const _UINT8 = DataTypes._UINT8 as const;
+export const _UINT16 = DataTypes._UINT16 as const;
+export const _UINT32 = DataTypes._UINT32 as const;
+export const _UINT64 = DataTypes._UINT64 as const;
+export const _INT8 = DataTypes._INT8 as const;
+export const _INT16 = DataTypes._INT16 as const;
+export const _INT32 = DataTypes._INT32 as const;
+export const _INT64 = DataTypes._INT64 as const;
+export const _BOOL = DataTypes._BOOL as const;
+export const _FLOAT = DataTypes._FLOAT as const;
+export const _FLOAT64 = DataTypes._FLOAT64 as const;
+export const _BINARY = DataTypes._BINARY as const;
+export const _STRING = DataTypes._STRING as const;
+export const _OBJECT = DataTypes._OBJECT as const;
 
 export type Schema =
   | DataTypes
@@ -51,11 +103,28 @@ export type DataTypeMap = {
   [DataTypes.BINARY]: Uint8Array;
   [DataTypes.STRING]: string;
   [DataTypes.OBJECT]: object;
+  // Optional variants (`<TYPE> | UNDEFINED`).
+  [DataTypes._UINT8]: number | undefined;
+  [DataTypes._UINT16]: number | undefined;
+  [DataTypes._UINT32]: number | undefined;
+  [DataTypes._UINT64]: bigint | undefined;
+  [DataTypes._INT8]: number | undefined;
+  [DataTypes._INT16]: number | undefined;
+  [DataTypes._INT32]: number | undefined;
+  [DataTypes._INT64]: bigint | undefined;
+  [DataTypes._BOOL]: boolean | undefined;
+  [DataTypes._FLOAT]: number | undefined;
+  [DataTypes._FLOAT64]: number | undefined;
+  [DataTypes._BINARY]: Uint8Array | undefined;
+  [DataTypes._STRING]: string | undefined;
+  [DataTypes._OBJECT]: object | undefined;
 };
 
 type ResolveDataType<S extends DataTypes> = DataTypes extends S
   ? number | string | boolean | bigint | Uint8Array | object
-  : DataTypeMap[S];
+  : S extends keyof DataTypeMap
+    ? DataTypeMap[S]
+    : number | string | boolean | bigint | Uint8Array | object;
 
 export type SchemaToType<S> = S extends DataTypes
   ? ResolveDataType<S>
