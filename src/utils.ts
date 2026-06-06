@@ -1,4 +1,3 @@
-
 export enum DataTypes {
   UINT8 = 0,
   UINT16,
@@ -71,31 +70,98 @@ export interface IPackConfig {
   useEncrypt: boolean;
   useCheckSum: boolean;
   secret: number;
+}
 
-}
-export interface IPackConfigOptions {
-  chunkSize?: number;
-  useEncrypt?: boolean;
-  useCheckSum?: boolean;
-  secret?: number;
-}
+export type IPackConfigOptions = Partial<IPackConfig>;
 
 export const defaultConfig: IPackConfig = {
   chunkSize: 10240,
   useEncrypt: true,
   useCheckSum: true,
-  secret: 1210
+  secret: 1210,
 };
 
 export function setDefaultConfig(opts: IPackConfigOptions): void {
-  if (opts.chunkSize !== undefined) defaultConfig.chunkSize = opts.chunkSize;
-  if (opts.useEncrypt !== undefined) defaultConfig.useEncrypt = opts.useEncrypt;
-  if (opts.useCheckSum !== undefined) defaultConfig.useCheckSum = opts.useCheckSum;
-  if (opts.secret !== undefined) defaultConfig.secret = opts.secret;
+  if (opts.chunkSize !== undefined) {
+    defaultConfig.chunkSize = opts.chunkSize;
+  }
+  if (opts.useEncrypt !== undefined) {
+    defaultConfig.useEncrypt = opts.useEncrypt;
+  }
+  if (opts.useCheckSum !== undefined) {
+    defaultConfig.useCheckSum = opts.useCheckSum;
+  }
+  if (opts.secret !== undefined) {
+    defaultConfig.secret = opts.secret;
+  }
 }
 
 export function defineSchema<const T extends Schema>(schema: T): T {
   return schema;
+}
+
+/**
+ * Position-weighted additive checksum: the sum of `byte * (position + 1)` over
+ * the first `len` bytes, reduced mod 65536. Weighting each byte by its position
+ * makes the sum sensitive to byte transpositions and shifts (a plain byte-sum
+ * is permutation-invariant and would miss them). Stored/read as a big-endian
+ * unsigned 16-bit int.
+ *
+ * The weight is reduced mod 65536 and the accumulator is reduced once per block,
+ * so the running sum can never lose float64 integer precision (each term stays
+ * below 256*65536) regardless of payload size. Because every term is congruent
+ * mod 65536, the result is identical to the unreduced sum mod 65536.
+ */
+export function computeChecksum(bytes: Uint8Array, len: number): number {
+  let sum = 0;
+  let i = 0;
+  while (i < len) {
+    const end = i + 8192 < len ? i + 8192 : len;
+    for (; i < end; i++) {
+      sum += bytes[i] * ((i + 1) & 0xffff);
+    }
+    sum %= 65536;
+  }
+  return sum;
+}
+
+/**
+ * Keystream byte for position `i` derived from the integer `secret` seed.
+ *
+ * This is a stateless, position-keyed pseudo-random byte: the encryption adds
+ * it to the plaintext byte (`& 0xFF`) on pack and subtracts it on unpack. Being
+ * a pure function of `(secret, i)` lets every decrypt path recompute the shift
+ * for any byte independently, while the avalanche mixing (a MurmurHash3-style
+ * finalizer over `secret XOR i*golden-ratio`) makes the per-byte shift behave
+ * randomly instead of the linearly-predictable `i + secret` it replaces.
+ *
+ * Note: this is lightweight obfuscation, not a cryptographically secure cipher.
+ */
+export function keystreamByte(secret: number, i: number): number {
+  let x = (secret ^ Math.imul(i, 0x9e3779b1)) | 0;
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b);
+  x = Math.imul(x ^ (x >>> 13), 0x45d9f3b);
+  x = (x ^ (x >>> 16)) >>> 0;
+  return x & 0xff;
+}
+
+/** Resolve per-call options against the defaults, once per pack/unpack entry point. */
+export function resolveConfig(opt?: IPackConfigOptions): {
+  useCheckSum: boolean;
+  useEncrypt: boolean;
+  secret: number;
+} {
+  const secret = opt?.secret ?? defaultConfig.secret;
+  // A fractional secret makes the byte shift asymmetric between pack and unpack
+  // (it would silently corrupt data), so require an integer key.
+  if (!Number.isInteger(secret)) {
+    throw new RangeError("secret must be an integer.");
+  }
+  return {
+    useCheckSum: opt?.useCheckSum ?? defaultConfig.useCheckSum,
+    useEncrypt: opt?.useEncrypt ?? defaultConfig.useEncrypt,
+    secret,
+  };
 }
 
 const encoder = new TextEncoder();
@@ -105,15 +171,21 @@ export function encodeUTF8(str: string): Uint8Array {
   return encoder.encode(str);
 }
 
-export function decodeUTF8(bytes: Uint8Array, start?: number, end?: number): string {
+export function decodeUTF8(
+  bytes: Uint8Array,
+  start?: number,
+  end?: number,
+): string {
   return decoder.decode(bytes.subarray(start, end));
 }
 
-export function toUint8Array(data: ArrayBufferLike | ArrayBuffer | Uint8Array | string): Uint8Array {
+export function toUint8Array(
+  data: ArrayBufferLike | ArrayBuffer | Uint8Array | string,
+): Uint8Array {
   if (data instanceof Uint8Array) {
     return data;
   }
-  if (typeof data === 'string') {
+  if (typeof data === "string") {
     return encoder.encode(data);
   }
   return new Uint8Array(data as ArrayBuffer);

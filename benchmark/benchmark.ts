@@ -1,28 +1,39 @@
 import { Suite } from "benchmark";
-import { pack, unpack, UINT32, STRING, BOOL, UINT8, UINT16, INT8, INT16, INT32, FLOAT } from "../src";
+import {
+  pack,
+  unpack,
+  UINT32,
+  STRING,
+  BOOL,
+  UINT8,
+  UINT16,
+  INT8,
+  INT16,
+  INT32,
+  FLOAT,
+} from "../src";
 
 // Scenario 1: Simple object with number fields
 const simpleObjectSchema = {
-    a: UINT8,
-    b: UINT16,
-    c: UINT32,
-    d: INT8,
-    e: INT16,
-    f: INT32,
-    g: FLOAT,
+  a: UINT8,
+  b: UINT16,
+  c: UINT32,
+  d: INT8,
+  e: INT16,
+  f: INT32,
+  g: FLOAT,
 };
 const simpleObjectData = {
-    a: 255,
-    b: 65535,
-    c: 4294967295,
-    d: -128,
-    e: -32768,
-    f: -2147483648,
-    g: 123.456,
+  a: 255,
+  b: 65535,
+  c: 4294967295,
+  d: -128,
+  e: -32768,
+  f: -2147483648,
+  g: 123.456,
 };
 const packedSimpleObject = pack(simpleObjectData, simpleObjectSchema);
 const jsonStringSimpleObject = JSON.stringify(simpleObjectData);
-
 
 // Scenario 2: Full sample with complex type
 const profileSchema = {
@@ -78,21 +89,19 @@ const complexStateData = {
 const packedComplexObject = pack(complexStateData, stateDataSchema);
 const jsonStringComplexObject = JSON.stringify(complexStateData);
 
-
 // Scenario 3: Big object with full data (around 1MB)
 const usersBig = [];
 const postsBig = [];
 for (let i = 0; i < 25000; i++) {
-    usersBig.push(user);
-    postsBig.push(post);
+  usersBig.push(user);
+  postsBig.push(post);
 }
 const bigStateData = {
-    users: usersBig,
-    posts: postsBig,
+  users: usersBig,
+  posts: postsBig,
 };
 const packedBigObject = pack(bigStateData, stateDataSchema);
 const jsonStringBigObject = JSON.stringify(bigStateData);
-
 
 const suite = new Suite();
 

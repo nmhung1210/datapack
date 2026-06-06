@@ -1,9 +1,10 @@
-
 import {
   DataTypes,
   Schema,
   IPackConfigOptions,
-  defaultConfig,
+  resolveConfig,
+  computeChecksum,
+  keystreamByte,
 } from "./utils";
 
 const encoder = new TextEncoder();
@@ -38,113 +39,231 @@ export class PackerContext {
   }
 }
 
-export function doPackCtx(ctx: PackerContext, data: any, schema: Schema | Array<Schema>) {
+export function doPackCtx(
+  ctx: PackerContext,
+  data: any,
+  schema: Schema | Array<Schema>,
+) {
   if (typeof schema === "number") {
     switch (schema) {
       case DataTypes.UINT8:
-        if (typeof data !== 'number') throw new Error('Invalid data type for UINT8. Expected number.');
-        if (ctx.offset + 1 > ctx.buf.length) ctx.grow(1);
+        if (typeof data !== "number") {
+          throw new Error("Invalid data type for UINT8. Expected number.");
+        }
+        if (!Number.isInteger(data) || data < 0 || data > 0xff) {
+          throw new RangeError("Value out of range for UINT8 (0..255).");
+        }
+        if (ctx.offset + 1 > ctx.buf.length) {
+          ctx.grow(1);
+        }
         ctx.view.setUint8(ctx.offset, data);
         ctx.offset += 1;
         return;
       case DataTypes.BOOL:
-        if (typeof data !== 'boolean') throw new Error('Invalid data type for BOOL. Expected boolean.');
-        if (ctx.offset + 1 > ctx.buf.length) ctx.grow(1);
+        if (typeof data !== "boolean") {
+          throw new Error("Invalid data type for BOOL. Expected boolean.");
+        }
+        if (ctx.offset + 1 > ctx.buf.length) {
+          ctx.grow(1);
+        }
         ctx.view.setUint8(ctx.offset, data ? 1 : 0);
         ctx.offset += 1;
         return;
       case DataTypes.INT8:
-        if (typeof data !== 'number') throw new Error('Invalid data type for INT8. Expected number.');
-        if (ctx.offset + 1 > ctx.buf.length) ctx.grow(1);
+        if (typeof data !== "number") {
+          throw new Error("Invalid data type for INT8. Expected number.");
+        }
+        if (!Number.isInteger(data) || data < -0x80 || data > 0x7f) {
+          throw new RangeError("Value out of range for INT8 (-128..127).");
+        }
+        if (ctx.offset + 1 > ctx.buf.length) {
+          ctx.grow(1);
+        }
         ctx.view.setInt8(ctx.offset, data);
         ctx.offset += 1;
         return;
       case DataTypes.UINT16:
-        if (typeof data !== 'number') throw new Error('Invalid data type for UINT16. Expected number.');
-        if (ctx.offset + 2 > ctx.buf.length) ctx.grow(2);
+        if (typeof data !== "number") {
+          throw new Error("Invalid data type for UINT16. Expected number.");
+        }
+        if (!Number.isInteger(data) || data < 0 || data > 0xffff) {
+          throw new RangeError("Value out of range for UINT16 (0..65535).");
+        }
+        if (ctx.offset + 2 > ctx.buf.length) {
+          ctx.grow(2);
+        }
         ctx.view.setUint16(ctx.offset, data, false);
         ctx.offset += 2;
         return;
       case DataTypes.INT16:
-        if (typeof data !== 'number') throw new Error('Invalid data type for INT16. Expected number.');
-        if (ctx.offset + 2 > ctx.buf.length) ctx.grow(2);
+        if (typeof data !== "number") {
+          throw new Error("Invalid data type for INT16. Expected number.");
+        }
+        if (!Number.isInteger(data) || data < -0x8000 || data > 0x7fff) {
+          throw new RangeError("Value out of range for INT16 (-32768..32767).");
+        }
+        if (ctx.offset + 2 > ctx.buf.length) {
+          ctx.grow(2);
+        }
         ctx.view.setInt16(ctx.offset, data, false);
         ctx.offset += 2;
         return;
       case DataTypes.UINT32:
-        if (typeof data !== 'number') throw new Error('Invalid data type for UINT32. Expected number.');
-        if (ctx.offset + 4 > ctx.buf.length) ctx.grow(4);
+        if (typeof data !== "number") {
+          throw new Error("Invalid data type for UINT32. Expected number.");
+        }
+        if (!Number.isInteger(data) || data < 0 || data > 0xffffffff) {
+          throw new RangeError(
+            "Value out of range for UINT32 (0..4294967295).",
+          );
+        }
+        if (ctx.offset + 4 > ctx.buf.length) {
+          ctx.grow(4);
+        }
         ctx.view.setUint32(ctx.offset, data, false);
         ctx.offset += 4;
         return;
       case DataTypes.INT32:
-        if (typeof data !== 'number') throw new Error('Invalid data type for INT32. Expected number.');
-        if (ctx.offset + 4 > ctx.buf.length) ctx.grow(4);
+        if (typeof data !== "number") {
+          throw new Error("Invalid data type for INT32. Expected number.");
+        }
+        if (
+          !Number.isInteger(data) ||
+          data < -0x80000000 ||
+          data > 0x7fffffff
+        ) {
+          throw new RangeError(
+            "Value out of range for INT32 (-2147483648..2147483647).",
+          );
+        }
+        if (ctx.offset + 4 > ctx.buf.length) {
+          ctx.grow(4);
+        }
         ctx.view.setInt32(ctx.offset, data, false);
         ctx.offset += 4;
         return;
-      case DataTypes.UINT64:
-        if (typeof data !== 'number' && typeof data !== 'bigint') throw new Error('Invalid data type for UINT64. Expected number or bigint.');
-        if (ctx.offset + 8 > ctx.buf.length) ctx.grow(8);
-        ctx.view.setBigUint64(ctx.offset, BigInt(data), false);
+      case DataTypes.UINT64: {
+        if (typeof data !== "number" && typeof data !== "bigint") {
+          throw new Error(
+            "Invalid data type for UINT64. Expected number or bigint.",
+          );
+        }
+        if (typeof data === "number" && !Number.isInteger(data)) {
+          throw new RangeError("Value out of range for UINT64 (non-integer).");
+        }
+        const v = BigInt(data);
+        if (v < BigInt(0) || v > BigInt("18446744073709551615")) {
+          throw new RangeError("Value out of range for UINT64 (0..2^64-1).");
+        }
+        if (ctx.offset + 8 > ctx.buf.length) {
+          ctx.grow(8);
+        }
+        ctx.view.setBigUint64(ctx.offset, v, false);
         ctx.offset += 8;
         return;
-      case DataTypes.INT64:
-        if (typeof data !== 'number' && typeof data !== 'bigint') throw new Error('Invalid data type for INT64. Expected number or bigint.');
-        if (ctx.offset + 8 > ctx.buf.length) ctx.grow(8);
-        ctx.view.setBigInt64(ctx.offset, BigInt(data), false);
+      }
+      case DataTypes.INT64: {
+        if (typeof data !== "number" && typeof data !== "bigint") {
+          throw new Error(
+            "Invalid data type for INT64. Expected number or bigint.",
+          );
+        }
+        if (typeof data === "number" && !Number.isInteger(data)) {
+          throw new RangeError("Value out of range for INT64 (non-integer).");
+        }
+        const v = BigInt(data);
+        if (
+          v < BigInt("-9223372036854775808") ||
+          v > BigInt("9223372036854775807")
+        ) {
+          throw new RangeError("Value out of range for INT64 (-2^63..2^63-1).");
+        }
+        if (ctx.offset + 8 > ctx.buf.length) {
+          ctx.grow(8);
+        }
+        ctx.view.setBigInt64(ctx.offset, v, false);
         ctx.offset += 8;
         return;
+      }
       case DataTypes.FLOAT:
-        if (typeof data !== 'number') throw new Error('Invalid data type for FLOAT. Expected number.');
-        if (ctx.offset + 4 > ctx.buf.length) ctx.grow(4);
+        if (typeof data !== "number") {
+          throw new Error("Invalid data type for FLOAT. Expected number.");
+        }
+        if (ctx.offset + 4 > ctx.buf.length) {
+          ctx.grow(4);
+        }
         ctx.view.setFloat32(ctx.offset, data, false);
         ctx.offset += 4;
         return;
       case DataTypes.FLOAT64:
-        if (typeof data !== 'number') throw new Error('Invalid data type for FLOAT64. Expected number.');
-        if (ctx.offset + 8 > ctx.buf.length) ctx.grow(8);
+        if (typeof data !== "number") {
+          throw new Error("Invalid data type for FLOAT64. Expected number.");
+        }
+        if (ctx.offset + 8 > ctx.buf.length) {
+          ctx.grow(8);
+        }
         ctx.view.setFloat64(ctx.offset, data, false);
         ctx.offset += 8;
         return;
       case DataTypes.BINARY: {
-        if (!(data instanceof Uint8Array)) throw new Error('Invalid data type for BINARY. Expected Uint8Array.');
+        if (!(data instanceof Uint8Array)) {
+          throw new Error("Invalid data type for BINARY. Expected Uint8Array.");
+        }
         const len = data.length;
-        if (ctx.offset + 4 + len > ctx.buf.length) ctx.grow(4 + len);
-        ctx.view.setInt32(ctx.offset, len, false);
+        if (ctx.offset + 4 + len > ctx.buf.length) {
+          ctx.grow(4 + len);
+        }
+        ctx.view.setUint32(ctx.offset, len, false);
         ctx.offset += 4;
         ctx.buf.set(data, ctx.offset);
         ctx.offset += len;
         return;
       }
       case DataTypes.STRING: {
-        if (typeof data !== 'string') throw new Error('Invalid data type for STRING. Expected string.');
+        if (typeof data !== "string") {
+          throw new Error("Invalid data type for STRING. Expected string.");
+        }
         const strLen = data.length;
-        if (ctx.offset + 4 + strLen > ctx.buf.length) ctx.grow(4 + strLen * 3);
+        if (ctx.offset + 4 + strLen > ctx.buf.length) {
+          ctx.grow(4 + strLen * 3);
+        }
         let len = strLen;
         let isAscii = true;
         const start = ctx.offset + 4;
         for (let i = 0; i < strLen; i++) {
           const c = data.charCodeAt(i);
-          if (c > 127) { isAscii = false; break; }
+          if (c > 127) {
+            isAscii = false;
+            break;
+          }
           ctx.buf[start + i] = c;
         }
         if (!isAscii) {
-          if (ctx.offset + 4 + strLen * 3 > ctx.buf.length) ctx.grow(4 + strLen * 3);
-          const result = encoder.encodeInto(data, ctx.buf.subarray(ctx.offset + 4));
+          if (ctx.offset + 4 + strLen * 3 > ctx.buf.length) {
+            ctx.grow(4 + strLen * 3);
+          }
+          const result = encoder.encodeInto(
+            data,
+            ctx.buf.subarray(ctx.offset + 4),
+          );
           len = result.written!;
         }
-        ctx.view.setInt32(ctx.offset, len, false);
+        ctx.view.setUint32(ctx.offset, len, false);
         ctx.offset += 4 + len;
         return;
       }
       case DataTypes.OBJECT: {
         const json = JSON.stringify(data);
         const maxLen = json.length * 3;
-        if (ctx.offset + 4 + maxLen > ctx.buf.length) ctx.grow(4 + maxLen);
-        const result = encoder.encodeInto(json, ctx.buf.subarray(ctx.offset + 4));
+        if (ctx.offset + 4 + maxLen > ctx.buf.length) {
+          ctx.grow(4 + maxLen);
+        }
+        const result = encoder.encodeInto(
+          json,
+          ctx.buf.subarray(ctx.offset + 4),
+        );
         const len = result.written!;
-        ctx.view.setInt32(ctx.offset, len, false);
+        ctx.view.setUint32(ctx.offset, len, false);
         ctx.offset += 4 + len;
         return;
       }
@@ -152,7 +271,9 @@ export function doPackCtx(ctx: PackerContext, data: any, schema: Schema | Array<
   } else if (Array.isArray(schema)) {
     const arrLen = data.length;
     const schemaLen = schema.length;
-    if (ctx.offset + 4 > ctx.buf.length) ctx.grow(4);
+    if (ctx.offset + 4 > ctx.buf.length) {
+      ctx.grow(4);
+    }
     ctx.view.setUint32(ctx.offset, arrLen, false);
     ctx.offset += 4;
     for (let i = 0; i < arrLen; i++) {
@@ -172,11 +293,9 @@ const defaultCtx = new PackerContext();
 export const pack = (
   data: any,
   dataSchema: Schema | Array<Schema>,
-  opt?: IPackConfigOptions
+  opt?: IPackConfigOptions,
 ) => {
-  const useCheckSum = opt ? (opt.useCheckSum ?? defaultConfig.useCheckSum) : defaultConfig.useCheckSum;
-  const useEncrypt = opt ? (opt.useEncrypt ?? defaultConfig.useEncrypt) : defaultConfig.useEncrypt;
-  const secret = opt ? (opt.secret ?? defaultConfig.secret) : defaultConfig.secret;
+  const { useCheckSum, useEncrypt, secret } = resolveConfig(opt);
 
   defaultCtx.reset();
   doPackCtx(defaultCtx, data, dataSchema);
@@ -191,41 +310,45 @@ export const pack = (
   const finalBuffSize = dataLen + (useCheckSum ? 2 : 0);
   const finalBuff = new Uint8Array(finalBuffSize);
 
-  // Combined copy + encrypt/checksum in one pass (touch bytes only once)
-  let checksum = 0;
-  if (useEncrypt) {
-    // Unrolled: process 4 bytes per iteration
-    const end4 = dataLen - (dataLen % 4);
+  // The checksum is the plaintext byte sum (so unpack decrypts first, then
+  // validates), written as a big-endian unsigned 16-bit int. Encryption adds a
+  // position-keyed pseudo-random keystream byte (see keystreamByte). When both
+  // are on we fold the sum into the same pass.
+  if (useEncrypt && useCheckSum) {
+    // Block-reduce the weighted sum mod 65536 so it never loses precision
+    // (see computeChecksum); the weight is reduced the same way.
+    let sum = 0;
     let i = 0;
-    for (; i < end4; i += 4) {
-      const b0 = src[i], b1 = src[i + 1], b2 = src[i + 2], b3 = src[i + 3];
-      checksum += b0 + b1 + b2 + b3;
-      finalBuff[i] = (b0 + i + secret) & 0xFF;
-      finalBuff[i + 1] = (b1 + i + 1 + secret) & 0xFF;
-      finalBuff[i + 2] = (b2 + i + 2 + secret) & 0xFF;
-      finalBuff[i + 3] = (b3 + i + 3 + secret) & 0xFF;
+    while (i < dataLen) {
+      const end = i + 8192 < dataLen ? i + 8192 : dataLen;
+      for (; i < end; i++) {
+        const b = src[i];
+        sum += b * ((i + 1) & 0xffff);
+        finalBuff[i] = (b + keystreamByte(secret, i)) & 0xff;
+      }
+      sum %= 65536;
     }
-    for (; i < dataLen; i++) {
-      checksum += src[i];
-      finalBuff[i] = (src[i] + i + secret) & 0xFF;
+    finalBuff[dataLen] = (sum >> 8) & 0xff;
+    finalBuff[dataLen + 1] = sum & 0xff;
+  } else if (useEncrypt) {
+    for (let i = 0; i < dataLen; i++) {
+      finalBuff[i] = (src[i] + keystreamByte(secret, i)) & 0xff;
     }
-  } else {
-    // Checksum only: compute from source, then bulk copy
-    const end8 = dataLen - (dataLen % 8);
+  } else if (useCheckSum) {
+    // Fuse the copy into the checksum pass (no subarray, no DataView).
+    let sum = 0;
     let i = 0;
-    for (; i < end8; i += 8) {
-      checksum += src[i] + src[i + 1] + src[i + 2] + src[i + 3]
-                + src[i + 4] + src[i + 5] + src[i + 6] + src[i + 7];
+    while (i < dataLen) {
+      const end = i + 8192 < dataLen ? i + 8192 : dataLen;
+      for (; i < end; i++) {
+        const b = src[i];
+        sum += b * ((i + 1) & 0xffff);
+        finalBuff[i] = b;
+      }
+      sum %= 65536;
     }
-    for (; i < dataLen; i++) {
-      checksum += src[i];
-    }
-    finalBuff.set(src.subarray(0, dataLen));
-  }
-
-  if (useCheckSum) {
-    const view = new DataView(finalBuff.buffer);
-    view.setInt16(dataLen, checksum % 32000, false);
+    finalBuff[dataLen] = (sum >> 8) & 0xff;
+    finalBuff[dataLen + 1] = sum & 0xff;
   }
 
   return finalBuff;
@@ -243,7 +366,7 @@ export const pack = (
 export const packParallel = async (
   data: any,
   dataSchema: Schema | Array<Schema>,
-  opt?: IPackConfigOptions
+  opt?: IPackConfigOptions,
 ): Promise<Uint8Array> => {
   // Only parallelize object schemas with multiple keys
   if (typeof dataSchema !== "object" || Array.isArray(dataSchema)) {
@@ -286,11 +409,9 @@ export const packParts = (
 export const combinePackedParts = (
   parts: { [key: string]: Uint8Array },
   schemaKeys: string[],
-  opt?: IPackConfigOptions
+  opt?: IPackConfigOptions,
 ): Uint8Array => {
-  const useCheckSum = opt ? (opt.useCheckSum ?? defaultConfig.useCheckSum) : defaultConfig.useCheckSum;
-  const useEncrypt = opt ? (opt.useEncrypt ?? defaultConfig.useEncrypt) : defaultConfig.useEncrypt;
-  const secret = opt ? (opt.secret ?? defaultConfig.secret) : defaultConfig.secret;
+  const { useCheckSum, useEncrypt, secret } = resolveConfig(opt);
 
   let totalLen = 0;
   for (const key of schemaKeys) {
@@ -305,38 +426,17 @@ export const combinePackedParts = (
     pos += parts[key].length;
   }
 
-  if (useCheckSum || useEncrypt) {
-    let checksum = 0;
-    if (useEncrypt) {
-      const end4 = totalLen - (totalLen % 4);
-      let i = 0;
-      for (; i < end4; i += 4) {
-        const b0 = finalBuff[i], b1 = finalBuff[i + 1], b2 = finalBuff[i + 2], b3 = finalBuff[i + 3];
-        checksum += b0 + b1 + b2 + b3;
-        finalBuff[i] = (b0 + i + secret) & 0xFF;
-        finalBuff[i + 1] = (b1 + i + 1 + secret) & 0xFF;
-        finalBuff[i + 2] = (b2 + i + 2 + secret) & 0xFF;
-        finalBuff[i + 3] = (b3 + i + 3 + secret) & 0xFF;
-      }
-      for (; i < totalLen; i++) {
-        checksum += finalBuff[i];
-        finalBuff[i] = (finalBuff[i] + i + secret) & 0xFF;
-      }
-    } else {
-      const end8 = totalLen - (totalLen % 8);
-      let i = 0;
-      for (; i < end8; i += 8) {
-        checksum += finalBuff[i] + finalBuff[i + 1] + finalBuff[i + 2] + finalBuff[i + 3]
-                  + finalBuff[i + 4] + finalBuff[i + 5] + finalBuff[i + 6] + finalBuff[i + 7];
-      }
-      for (; i < totalLen; i++) {
-        checksum += finalBuff[i];
-      }
+  // Checksum over the plaintext first, then encrypt the bytes in place by
+  // adding the position-keyed keystream byte (see keystreamByte).
+  const checksum = useCheckSum ? computeChecksum(finalBuff, totalLen) : 0;
+  if (useEncrypt) {
+    for (let i = 0; i < totalLen; i++) {
+      finalBuff[i] = (finalBuff[i] + keystreamByte(secret, i)) & 0xff;
     }
-    if (useCheckSum) {
-      const view = new DataView(finalBuff.buffer);
-      view.setInt16(totalLen, checksum % 32000, false);
-    }
+  }
+  if (useCheckSum) {
+    finalBuff[totalLen] = (checksum >> 8) & 0xff;
+    finalBuff[totalLen + 1] = checksum & 0xff;
   }
 
   return finalBuff;
