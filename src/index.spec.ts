@@ -28,6 +28,7 @@ import {
   doPackCtx,
   setDefaultConfig,
   defaultConfig,
+  defineSchema,
 } from "./index";
 import expect from "expect";
 
@@ -334,11 +335,11 @@ describe("MetaPack test", () => {
       unpack(corruptedPacked, checksumSchema, checksumOptions)
     ).toThrow(/Data mismatch!/);
 
-    // 5. Unpacker: Graceful failures for empty/invalid schemas and data
+    // 5. Unpacker: Failures for empty/invalid schemas and data
     expect(() => unpack(new Uint8Array([]), UINT8)).toThrow("Invalid package!");
     expect(() => unpack(pack(1, UINT8), null as any)).toThrow("Invalid schema!");
     expect(() => unpack(pack(1, UINT8), undefined as any)).toThrow("Invalid schema!");
-    expect(unpack(pack(1, UINT8), "abc" as any)).toBeUndefined();
+    expect(() => unpack(pack(1, UINT8), "abc" as any)).toThrow("Invalid schema!");
   });
 });
 
@@ -1017,5 +1018,150 @@ describe("setDefaultConfig", () => {
     // Should succeed with matching options
     const unpacked = unpack(packed, UINT8, opts);
     expect(unpacked).toEqual(42);
+  });
+});
+
+describe("defineSchema", () => {
+  it("should return the schema unchanged", () => {
+    const schema = defineSchema({ a: UINT8, b: STRING });
+    expect(schema).toEqual({ a: UINT8, b: STRING });
+    const packed = pack({ a: 1, b: "x" }, schema);
+    expect(unpack(packed, schema)).toEqual({ a: 1, b: "x" });
+  });
+});
+
+describe("Non-encrypted unpack path coverage", () => {
+  // useEncrypt: false routes through doUnpack (not the inline doUnpackDec),
+  // exercising the per-type branches there.
+  const opts = { useCheckSum: false, useEncrypt: false };
+
+  it("should unpack INT16 / INT64 / OBJECT", () => {
+    const schema = { a: INT16, b: INT64, c: OBJECT };
+    const data = { a: -12345, b: BigInt("-9007199254740993"), c: { nested: [1, 2] } };
+    const packed = pack(data, schema, opts);
+    expect(unpack(packed, schema, opts)).toEqual(data);
+  });
+
+  it("should decode a non-ASCII OBJECT/STRING via the decoder path", () => {
+    const schema = { s: STRING };
+    const data = { s: "héllo wörld ☺" };
+    const packed = pack(data, schema, opts);
+    expect(unpack(packed, schema, opts)).toEqual(data);
+  });
+});
+
+describe("Encrypted unpack path coverage", () => {
+  // useEncrypt: true routes through the inline doUnpackDec parser.
+  const opts = { useCheckSum: true, useEncrypt: true, secret: 321 };
+
+  it("should decode a non-ASCII string inline (decoder fallback)", () => {
+    const data = "日本語テキスト"; // forces the non-ASCII decode branch
+    const packed = pack(data, STRING, opts);
+    expect(unpack(packed, STRING, opts)).toEqual(data);
+  });
+
+  it("should round-trip an OBJECT inline", () => {
+    const data = { k: "v", arr: [1, 2, 3] };
+    const packed = pack(data, OBJECT, opts);
+    expect(unpack(packed, OBJECT, opts)).toEqual(data);
+  });
+
+  it("should checksum trailing bytes the schema does not consume", () => {
+    // Pack two fields, unpack with a one-field schema → the second field's
+    // bytes are left over and must still be folded into the checksum.
+    const full = { a: UINT8, b: UINT32 };
+    const packed = pack({ a: 7, b: 123456 }, full, opts);
+    const partial = unpack(packed, { a: UINT8 }, opts);
+    expect(partial).toEqual({ a: 7 });
+  });
+
+  it("should grow the variable-length scratch for a large OBJECT", () => {
+    // Larger than any prior scratch allocation, forcing the OBJECT grow branch.
+    const obj = { items: Array.from({ length: 5000 }, (_, i) => i) };
+    expect(unpack(pack(obj, OBJECT, opts), OBJECT, opts)).toEqual(obj);
+  });
+
+  it("should grow the variable-length scratch for a large STRING", () => {
+    const str = "x".repeat(50000);
+    expect(unpack(pack(str, STRING, opts), STRING, opts)).toEqual(str);
+  });
+
+  it("should throw on a truncated variable-length STRING payload", () => {
+    const str = "hello world";
+    const packed = pack(str, STRING, opts);
+    // Drop bytes so the declared length runs past the buffer end.
+    const truncated = packed.slice(0, packed.length - 4);
+    expect(() => unpack(truncated, STRING, opts))
+      .toThrow("Attempt to access memory outside buffer bounds");
+  });
+
+  it("should throw on a truncated BINARY payload (decInto bounds)", () => {
+    const bin = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
+    const packed = pack(bin, BINARY, opts);
+    const truncated = packed.slice(0, packed.length - 4);
+    expect(() => unpack(truncated, BINARY, opts))
+      .toThrow("Attempt to access memory outside buffer bounds");
+  });
+});
+
+describe("skipSchema bounds handling", () => {
+  const opts = { useCheckSum: false, useEncrypt: false };
+
+  it("should throw when a variable-length length prefix is truncated", () => {
+    const schema = { a: UINT8, b: STRING };
+    const packed = pack({ a: 9, b: "hello" }, schema, opts);
+    // Keep field a + only 2 of the 4 length-prefix bytes of field b, so the
+    // prefix read itself overruns (ctx.offset + 4 > buf.length at line 401).
+    const truncated = packed.slice(0, 3);
+    expect(() => splitPackedParts(truncated, schema as any, opts))
+      .toThrow("Attempt to access memory outside buffer bounds");
+  });
+
+  it("should throw when a fixed-width field runs past the buffer end", () => {
+    // Pack one UINT8, but split as { a: UINT8, b: UINT32 } so skipSchema
+    // advances past the end on b (hits the post-skip bounds check at line 409).
+    const packed = pack({ a: 9 }, { a: UINT8 }, opts);
+    expect(() => splitPackedParts(packed, { a: UINT8, b: UINT32 } as any, opts))
+      .toThrow("Attempt to access memory outside buffer bounds");
+  });
+});
+
+describe("Invalid schema handling", () => {
+  // 99 is not a valid DataTypes member, so every dispatch hits its default.
+  const badType = 99 as any;
+
+  it("should throw on an unknown numeric schema (non-encrypted)", () => {
+    const packed = pack(1, UINT8, { useCheckSum: false, useEncrypt: false });
+    expect(() => unpack(packed, badType, { useCheckSum: false, useEncrypt: false }))
+      .toThrow("Invalid schema!");
+  });
+
+  it("should throw on an unknown numeric schema (encrypted)", () => {
+    const packed = pack(1, UINT8, { useCheckSum: false, useEncrypt: true, secret: 5 });
+    expect(() => unpack(packed, badType, { useCheckSum: false, useEncrypt: true, secret: 5 }))
+      .toThrow("Invalid schema!");
+  });
+
+  it("should throw on a null schema", () => {
+    const packed = pack(1, UINT8, { useCheckSum: false, useEncrypt: false });
+    expect(() => unpack(packed, null as any, { useCheckSum: false, useEncrypt: false }))
+      .toThrow("Invalid schema!");
+  });
+
+  it("should throw on a non-object/non-number schema (string)", () => {
+    const packed = pack(1, UINT8, { useCheckSum: false, useEncrypt: false });
+    // A string schema is neither a DataType, array, nor object → fallthrough.
+    expect(() => unpack(packed, "nope" as any, { useCheckSum: false, useEncrypt: false }))
+      .toThrow("Invalid schema!");
+    expect(() => unpack(packed, "nope" as any, { useCheckSum: false, useEncrypt: true, secret: 1 }))
+      .toThrow("Invalid schema!");
+  });
+
+  it("should throw on an unknown numeric schema in splitPackedParts (skipSchema)", () => {
+    const schema = { a: UINT8 };
+    const opts = { useCheckSum: false, useEncrypt: false };
+    const packed = pack({ a: 1 }, schema, opts);
+    expect(() => splitPackedParts(packed, { a: badType } as any, opts))
+      .toThrow("Invalid schema!");
   });
 });
