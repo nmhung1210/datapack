@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 The library is 4 source files in `src/`:
 
-- **`utils.ts`** — `DataTypes` enum (UINT8, INT8, UINT16, INT16, INT32, UINT32, UINT64, INT64, BOOL, FLOAT, BINARY, STRING, OBJECT), `Schema` type definition, `IPackConfig` interface, and the `SchemaToType` conditional type that infers TypeScript types from schemas.
+- **`utils.ts`** — `DataTypes` enum (UINT8, INT8, UINT16, INT16, INT32, UINT32, UINT64, INT64, BOOL, FLOAT, BINARY, STRING, OBJECT, plus a computed `_TYPE` member per type for the optional variant `TYPE | UNDEFINED`). The `UNDEFINED = 0x100` marker bit is a standalone exported const (not an enum member). Also holds the `Schema` type definition, `IPackConfig` interface, and the `SchemaToType` conditional type that infers TypeScript types from schemas.
 - **`packer.ts`** — `pack(data, schema, options?)` function. Uses a shared growable Buffer with offset tracking. Handles primitive types, arrays (length-prefixed with UINT32), and nested objects. After packing, optionally applies XOR-style encryption and appends a checksum.
 - **`unpacker.ts`** — `unpack(data, schema, options?)` function. Reverses encryption/checksum, then reads values using a dispatch table (`unpackerFunctions`) keyed by `DataTypes`. Returns fully typed result via `SchemaToType<S>`.
 - **`index.ts`** — Re-exports everything from the other three modules.
@@ -26,6 +26,7 @@ The library is 4 source files in `src/`:
 ### Key design patterns
 
 - **Schema-driven:** Schemas are plain objects/arrays/DataTypes enums. Array schemas use modulo indexing (`schema[i % schema.length]`) to support repeating patterns.
+- **Optional values:** a schema tag with the `UNDEFINED` (`0x100`) bit set (e.g. `UINT8 | UNDEFINED` or the `_UINT8` alias) is detected at runtime via `schema & UNDEFINED`; the base type is `schema & ~UNDEFINED`. On the wire it's a presence byte (1/0) followed by the value only when present. Handled in all four traversals: `doPackCtx`, `doUnpackDec` (encrypted path), `doUnpack` (plain path), and `skipSchema` (parallel split).
 - **Big-endian byte order** for all numeric types.
 - **Options:** `useCheckSum` (2-byte checksum appended), `useEncrypt` (byte-level XOR with position + secret), `chunkSize`, `secret`.
 - **TypeScript type inference:** `SchemaToType<S>` recursively maps schema structures to their corresponding TS types, giving full type safety on `unpack` return values.
