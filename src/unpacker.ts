@@ -1,6 +1,7 @@
 import {
   DataTypes,
   Schema,
+  UNDEFINED,
   IPackConfigOptions,
   resolveConfig,
   computeChecksum,
@@ -104,6 +105,14 @@ function doUnpackDec(
   st: DecState,
 ): any {
   if (typeof schema === "number") {
+    // Optional schema: read the presence byte, then the base value only if set.
+    if (schema & UNDEFINED) {
+      decScratch(buff, st, 1);
+      if (scratch[0] === 0) {
+        return undefined;
+      }
+      return doUnpackDec(schema & ~UNDEFINED, buff, st);
+    }
     switch (schema) {
       case DataTypes.UINT8:
         decScratch(buff, st, 1);
@@ -277,6 +286,15 @@ function doUnpack(
   ctx: { offset: number },
 ): any {
   if (typeof schema === "number") {
+    // Optional schema: read the presence byte, then the base value only if set.
+    if (schema & UNDEFINED) {
+      if (ctx.offset + 1 > buf.length) {
+        throw new RangeError("Attempt to access memory outside buffer bounds");
+      }
+      const present = view.getUint8(ctx.offset) !== 0;
+      ctx.offset += 1;
+      return present ? doUnpack(schema & ~UNDEFINED, buf, view, ctx) : undefined;
+    }
     let val: any;
     switch (schema) {
       case DataTypes.UINT8:
@@ -427,6 +445,18 @@ function skipSchema(
   ctx: { offset: number },
 ): void {
   if (typeof schema === "number") {
+    // Optional schema: consume the presence byte, then the base value only if set.
+    if (schema & UNDEFINED) {
+      if (ctx.offset + 1 > buf.length) {
+        throw new RangeError("Attempt to access memory outside buffer bounds");
+      }
+      const present = view.getUint8(ctx.offset) !== 0;
+      ctx.offset += 1;
+      if (present) {
+        skipSchema(schema & ~UNDEFINED, buf, view, ctx);
+      }
+      return;
+    }
     switch (schema) {
       case DataTypes.UINT8:
       case DataTypes.INT8:

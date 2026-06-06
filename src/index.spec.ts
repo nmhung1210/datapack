@@ -30,6 +30,11 @@ import {
   defaultConfig,
   defineSchema,
   keystreamByte,
+  UNDEFINED,
+  _UINT8,
+  _UINT16,
+  _STRING,
+  _INT64,
 } from "./index";
 import expect from "expect";
 
@@ -1364,5 +1369,125 @@ describe("Invalid schema handling", () => {
     expect(() => splitPackedParts(packed, { a: badType } as any, opts)).toThrow(
       "Invalid schema!",
     );
+  });
+});
+
+describe("optional datatype (UNDEFINED)", () => {
+  it("should round-trip a present optional primitive", () => {
+    const schema = UINT16 | UNDEFINED;
+    expect(unpack(pack(42, schema), schema)).toBe(42);
+  });
+
+  it("should round-trip an absent optional (undefined)", () => {
+    const schema = UINT16 | UNDEFINED;
+    expect(unpack(pack(undefined, schema), schema)).toBeUndefined();
+  });
+
+  it("should treat null as absent and unpack to undefined", () => {
+    const schema = STRING | UNDEFINED;
+    expect(unpack(pack(null, schema), schema)).toBeUndefined();
+  });
+
+  it("should use a single presence byte when absent", () => {
+    const opts = { useCheckSum: false, useEncrypt: false };
+    const packed = pack(undefined, UINT32 | UNDEFINED, opts);
+    // Just the presence byte (0), no 4-byte payload.
+    expect(packed.length).toBe(1);
+    expect(packed[0]).toBe(0);
+  });
+
+  it("should handle optional object fields, present and absent", () => {
+    const schema = {
+      id: UINT32,
+      nickName: STRING | UNDEFINED,
+      age: UINT8 | UNDEFINED,
+    };
+    const withAll = { id: 1, nickName: "Alice", age: 30 };
+    expect(unpack(pack(withAll, schema), schema)).toEqual(withAll);
+
+    const packed = pack({ id: 2, age: 7 }, schema);
+    expect(unpack(packed, schema)).toEqual({
+      id: 2,
+      nickName: undefined,
+      age: 7,
+    });
+  });
+
+  it("should support optionals inside arrays", () => {
+    const schema = [UINT8 | UNDEFINED];
+    const data = [1, undefined, 3];
+    expect(unpack(pack(data, schema), schema)).toEqual([1, undefined, 3]);
+  });
+
+  it("should round-trip optionals on every config combination", () => {
+    const schema = { a: UINT16 | UNDEFINED, b: STRING | UNDEFINED };
+    const data = { a: 256, b: undefined };
+    for (const useCheckSum of [true, false]) {
+      for (const useEncrypt of [true, false]) {
+        const opts = { useCheckSum, useEncrypt, secret: 7 };
+        const packed = pack(data, schema, opts);
+        expect(unpack(packed, schema, opts)).toEqual({ a: 256, b: undefined });
+      }
+    }
+  });
+
+  it("should split/unpack parts with optional fields", () => {
+    const schema = { a: UINT8, b: STRING | UNDEFINED };
+    const opts = { useCheckSum: false, useEncrypt: false };
+    const packed = pack({ a: 5, b: "hi" }, schema, opts);
+    const parts = splitPackedParts(packed, schema as any, opts);
+    expect(unpackPart(parts.a, schema.a)).toBe(5);
+    expect(unpackPart(parts.b, schema.b)).toBe("hi");
+  });
+
+  it("should throw when an optional presence byte runs past the buffer end", () => {
+    const opts = { useCheckSum: false, useEncrypt: false };
+    // Pack nothing, then ask for an optional field on an empty buffer.
+    const packed = pack({ a: 1 }, { a: UINT8 }, opts);
+    expect(() =>
+      splitPackedParts(
+        packed,
+        { a: UINT8, b: UINT8 | UNDEFINED } as any,
+        opts,
+      ),
+    ).toThrow("Attempt to access memory outside buffer bounds");
+  });
+
+  it("should round-trip via the _TYPE optional aliases", () => {
+    const schema = { opt1: _UINT8, data: UINT8, name: _STRING };
+    const present = { opt1: 9, data: 5, name: "x" };
+    expect(unpack(pack(present, schema), schema)).toEqual(present);
+
+    const packed = pack({ data: 5 }, schema);
+    expect(unpack(packed, schema)).toEqual({
+      opt1: undefined,
+      data: 5,
+      name: undefined,
+    });
+  });
+
+  it("should infer T | undefined for _TYPE alias fields (compile-time)", () => {
+    const schema = {
+      opt1: _UINT8,
+      n: _UINT16,
+      data: UINT8,
+      name: _STRING,
+      big: _INT64,
+    };
+    const packed = pack({ data: 1 }, schema);
+    const result = unpack(packed, schema);
+
+    // These assignments only compile if SchemaToType infers the precise types.
+    const opt1: number | undefined = result.opt1;
+    const n: number | undefined = result.n;
+    const data: number = result.data;
+    const name: string | undefined = result.name;
+    const big: bigint | undefined = result.big;
+
+    expect(opt1).toBeUndefined();
+    expect(n).toBeUndefined();
+    expect(data).toBe(1);
+    expect(name).toBeUndefined();
+    expect(big).toBeUndefined();
   });
 });

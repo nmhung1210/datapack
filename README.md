@@ -12,6 +12,7 @@ A high-performance JavaScript library for packing and unpacking binary data with
 - **Schema-driven** — describe your data once with plain objects, arrays, and `DataTypes` constants.
 - **Full TypeScript inference** — `unpack` returns a type derived from your schema, no manual annotations needed.
 - **14 data types** — fixed-width integers (8/16/32/64-bit, signed and unsigned), 32- and 64-bit floats, booleans, UTF-8 strings, raw binary, and arbitrary JSON objects.
+- **Optional values** — mark any field optional with the `_TYPE` aliases (`_STRING`, `_UINT8`, …); absent values pack to a single presence byte and unpack to `undefined`.
 - **Optional integrity & obfuscation** — a position-weighted checksum to detect corruption and a keystream byte cipher, both opt-out.
 - **Range validation** — out-of-range or non-integer values are rejected at pack time with a `RangeError` instead of silently truncating.
 - **Parallel-friendly** — pack/unpack object fields independently for use with Web Workers or `worker_threads`.
@@ -74,6 +75,23 @@ const unpacked = unpack(packed, schema);
 console.log(unpacked);
 ```
 
+### Optional value
+
+Use a `_TYPE` alias (e.g. `_STRING`) to allow a field to be absent. Absent values cost a single byte and unpack back to `undefined`.
+
+```javascript
+import { pack, unpack, UINT8, _STRING } from "datapack";
+
+const schema = { id: UINT8, nickName: _STRING };
+
+const packed = pack({ id: 1 }, schema); // nickName omitted
+const unpacked = unpack(packed, schema);
+
+console.log(unpacked); // { id: 1, nickName: undefined }
+```
+
+See [Optional values](#optional-values) for the full details.
+
 ## TypeScript Support
 
 `datapack` is written in TypeScript and comes with first-class type support.
@@ -85,13 +103,14 @@ One of the most powerful features of `datapack` is its ability to generate TypeS
 Here's an example of how it works:
 
 ```typescript
-import { pack, unpack, UINT32, STRING, BOOL, UINT8 } from "datapack";
+import { pack, unpack, UINT32, STRING, BOOL, UINT8, _STRING } from "datapack";
 
 const profileSchema = {
   userId: UINT32,
   nickName: STRING,
   isVip: BOOL,
   age: UINT8,
+  bio: _STRING, // optional
 };
 
 const profileData = {
@@ -109,6 +128,7 @@ const packedProfile = pack(profileData, profileSchema);
 //   nickName: string;
 //   isVip: boolean;
 //   age: number;
+//   bio: string | undefined;
 // }
 const unpackedProfile = unpack(packedProfile, profileSchema);
 
@@ -478,6 +498,27 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 | `OBJECT`  | 4 + n bytes | JSON-serialized object             |
 
 All multi-byte numeric values use **big-endian** byte order. Variable-length types (`STRING`, `BINARY`, `OBJECT`) are prefixed with a 4-byte unsigned length. Array schemas are length-prefixed with a `UINT32` count, and the schema entries repeat (via modulo indexing) to cover every element — so `[UINT8, INT16]` describes a sequence that alternates `UINT8`, `INT16`, `UINT8`, …
+
+Every type also has an **optional variant** — an `_TYPE` alias (`_UINT8`, `_STRING`, …) — that allows the value to be absent. See [Optional values](#optional-values).
+
+### Optional values
+
+Mark a value as optional with its `_TYPE` alias — there is one for every type (`_UINT8`, `_STRING`, `_INT64`, …). On the wire an optional value is prefixed with a single presence byte (1 = present, 0 = absent); when absent, no value bytes follow. Both `undefined` and `null` pack as absent and unpack back to `undefined`. The alias keeps a literal type, so `unpack` infers the field as `T | undefined`.
+
+```typescript
+import { pack, unpack, UINT8, _STRING, _UINT8 } from "datapack";
+
+const schema = {
+  id: UINT8,
+  nickName: _STRING, // string | undefined
+  age: _UINT8, // number | undefined
+};
+
+const packed = pack({ id: 1, age: 30 }, schema); // nickName omitted
+const unpacked = unpack(packed, schema);
+console.log(unpacked); // { id: 1, nickName: undefined, age: 30 }
+//        unpacked.nickName is typed as `string | undefined`
+```
 
 ## Compatibility
 
