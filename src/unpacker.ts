@@ -5,6 +5,7 @@ import {
   IPackConfigOptions,
   resolveConfig,
   computeChecksum,
+  keystreamByte,
   SchemaToType,
   toUint8Array,
 } from "./utils";
@@ -42,7 +43,7 @@ function decScratch(buff: Uint8Array, st: DecState, n: number): void {
   let sum = st.sum;
   const secret = st.secret;
   for (let k = 0; k < n; k++) {
-    const d = (buff[p + k] - (p + k) - secret) & 0xFF;
+    const d = (buff[p + k] - keystreamByte(secret, p + k)) & 0xFF;
     scratch[k] = d;
     sum += d * (p + k + 1);
   }
@@ -62,7 +63,7 @@ function decVar(buff: Uint8Array, st: DecState, len: number): boolean {
   const secret = st.secret;
   let ascii = 0;
   for (let k = 0; k < len; k++) {
-    const d = (buff[p + k] - (p + k) - secret) & 0xFF;
+    const d = (buff[p + k] - keystreamByte(secret, p + k)) & 0xFF;
     varScratch[k] = d;
     ascii |= d;
     sum += d * (p + k + 1);
@@ -79,7 +80,7 @@ function decInto(buff: Uint8Array, st: DecState, target: Uint8Array, len: number
   let sum = st.sum;
   const secret = st.secret;
   for (let k = 0; k < len; k++) {
-    const d = (buff[p + k] - (p + k) - secret) & 0xFF;
+    const d = (buff[p + k] - keystreamByte(secret, p + k)) & 0xFF;
     target[k] = d;
     sum += d * (p + k + 1);
   }
@@ -199,8 +200,8 @@ function decodeBuffer(
   secret: number
 ): Uint8Array {
   if (useEncrypt && useCheckSum) {
-    // Decrypt (position-dependent shift back) and accumulate the plaintext
-    // byte-sum checksum in a single pass.
+    // Decrypt (subtract the position-keyed keystream byte) and accumulate the
+    // plaintext weighted checksum in a single pass.
     const dataEndOffset = buff.length - 2;
     const dataBuff = new Uint8Array(dataEndOffset);
     // Block-reduce the weighted sum mod 65536 so it stays exact at any size.
@@ -209,7 +210,7 @@ function decodeBuffer(
     while (i < dataEndOffset) {
       const end = i + 8192 < dataEndOffset ? i + 8192 : dataEndOffset;
       for (; i < end; i++) {
-        const d = (buff[i] - i - secret) & 0xFF;
+        const d = (buff[i] - keystreamByte(secret, i)) & 0xFF;
         dataBuff[i] = d;
         sum += d * ((i + 1) & 0xFFFF);
       }
@@ -226,7 +227,7 @@ function decodeBuffer(
     const dataEndOffset = buff.length;
     const dataBuff = new Uint8Array(dataEndOffset);
     for (let i = 0; i < dataEndOffset; i++) {
-      dataBuff[i] = (buff[i] - i - secret) & 0xFF;
+      dataBuff[i] = (buff[i] - keystreamByte(secret, i)) & 0xFF;
     }
     return dataBuff;
   }
@@ -461,7 +462,7 @@ export const unpack = <const S extends Schema | ReadonlyArray<Schema>>(
       // and keeps the graceful path for schemas that read nothing).
       let { sum } = st;
       for (let p = st.offset; p < end; p++) {
-        sum += ((buff[p] - p - secret) & 0xFF) * (p + 1);
+        sum += ((buff[p] - keystreamByte(secret, p)) & 0xFF) * (p + 1);
       }
       sum &= 0xFFFF;
       if (((sum >> 8) & 0xFF) !== buff[end] || (sum & 0xFF) !== buff[end + 1]) {

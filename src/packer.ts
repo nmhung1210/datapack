@@ -5,6 +5,7 @@ import {
   IPackConfigOptions,
   resolveConfig,
   computeChecksum,
+  keystreamByte,
 } from "./utils";
 
 const encoder = new TextEncoder();
@@ -205,9 +206,9 @@ export const pack = (
   const finalBuff = new Uint8Array(finalBuffSize);
 
   // The checksum is the plaintext byte sum (so unpack decrypts first, then
-  // validates), written as a big-endian unsigned 16-bit int. Encryption is a
-  // position-dependent byte shift by `i + secret`. When both are on we fold the
-  // sum into the same pass.
+  // validates), written as a big-endian unsigned 16-bit int. Encryption adds a
+  // position-keyed pseudo-random keystream byte (see keystreamByte). When both
+  // are on we fold the sum into the same pass.
   if (useEncrypt && useCheckSum) {
     // Block-reduce the weighted sum mod 65536 so it never loses precision
     // (see computeChecksum); the weight is reduced the same way.
@@ -218,7 +219,7 @@ export const pack = (
       for (; i < end; i++) {
         const b = src[i];
         sum += b * ((i + 1) & 0xFFFF);
-        finalBuff[i] = (b + i + secret) & 0xFF;
+        finalBuff[i] = (b + keystreamByte(secret, i)) & 0xFF;
       }
       sum %= 65536;
     }
@@ -226,7 +227,7 @@ export const pack = (
     finalBuff[dataLen + 1] = sum & 0xFF;
   } else if (useEncrypt) {
     for (let i = 0; i < dataLen; i++) {
-      finalBuff[i] = (src[i] + i + secret) & 0xFF;
+      finalBuff[i] = (src[i] + keystreamByte(secret, i)) & 0xFF;
     }
   } else if (useCheckSum) {
     // Fuse the copy into the checksum pass (no subarray, no DataView).
@@ -320,12 +321,12 @@ export const combinePackedParts = (
     pos += parts[key].length;
   }
 
-  // Checksum over the plaintext first, then encrypt the bytes in place with a
-  // position-dependent shift by `i + secret`.
+  // Checksum over the plaintext first, then encrypt the bytes in place by
+  // adding the position-keyed keystream byte (see keystreamByte).
   const checksum = useCheckSum ? computeChecksum(finalBuff, totalLen) : 0;
   if (useEncrypt) {
     for (let i = 0; i < totalLen; i++) {
-      finalBuff[i] = (finalBuff[i] + i + secret) & 0xFF;
+      finalBuff[i] = (finalBuff[i] + keystreamByte(secret, i)) & 0xFF;
     }
   }
   if (useCheckSum) {

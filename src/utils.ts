@@ -118,6 +118,26 @@ export function computeChecksum(bytes: Uint8Array, len: number): number {
   return sum;
 }
 
+/**
+ * Keystream byte for position `i` derived from the integer `secret` seed.
+ *
+ * This is a stateless, position-keyed pseudo-random byte: the encryption adds
+ * it to the plaintext byte (`& 0xFF`) on pack and subtracts it on unpack. Being
+ * a pure function of `(secret, i)` lets every decrypt path recompute the shift
+ * for any byte independently, while the avalanche mixing (a MurmurHash3-style
+ * finalizer over `secret XOR i*golden-ratio`) makes the per-byte shift behave
+ * randomly instead of the linearly-predictable `i + secret` it replaces.
+ *
+ * Note: this is lightweight obfuscation, not a cryptographically secure cipher.
+ */
+export function keystreamByte(secret: number, i: number): number {
+  let x = (secret ^ Math.imul(i, 0x9E3779B1)) | 0;
+  x = Math.imul(x ^ (x >>> 16), 0x45d9f3b);
+  x = Math.imul(x ^ (x >>> 13), 0x45d9f3b);
+  x = (x ^ (x >>> 16)) >>> 0;
+  return x & 0xFF;
+}
+
 /** Resolve per-call options against the defaults, once per pack/unpack entry point. */
 export function resolveConfig(opt?: IPackConfigOptions): {
   useCheckSum: boolean;
