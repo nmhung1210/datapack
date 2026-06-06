@@ -71,14 +71,9 @@ export interface IPackConfig {
   useEncrypt: boolean;
   useCheckSum: boolean;
   secret: number;
+}
 
-}
-export interface IPackConfigOptions {
-  chunkSize?: number;
-  useEncrypt?: boolean;
-  useCheckSum?: boolean;
-  secret?: number;
-}
+export type IPackConfigOptions = Partial<IPackConfig>;
 
 export const defaultConfig: IPackConfig = {
   chunkSize: 10240,
@@ -96,6 +91,34 @@ export function setDefaultConfig(opts: IPackConfigOptions): void {
 
 export function defineSchema<const T extends Schema>(schema: T): T {
   return schema;
+}
+
+/**
+ * Position-weighted additive checksum: the sum of `byte * (position + 1)` over
+ * the first `len` bytes, reduced mod 65536. Weighting each byte by its position
+ * makes the sum sensitive to byte transpositions and shifts (a plain byte-sum
+ * is permutation-invariant and would miss them). Stored/read as a big-endian
+ * unsigned 16-bit int.
+ */
+export function computeChecksum(bytes: Uint8Array, len: number): number {
+  let sum = 0;
+  for (let i = 0; i < len; i++) {
+    sum += bytes[i] * (i + 1);
+  }
+  return sum & 0xFFFF;
+}
+
+/** Resolve per-call options against the defaults, once per pack/unpack entry point. */
+export function resolveConfig(opt?: IPackConfigOptions): {
+  useCheckSum: boolean;
+  useEncrypt: boolean;
+  secret: number;
+} {
+  return {
+    useCheckSum: opt?.useCheckSum ?? defaultConfig.useCheckSum,
+    useEncrypt: opt?.useEncrypt ?? defaultConfig.useEncrypt,
+    secret: opt?.secret ?? defaultConfig.secret,
+  };
 }
 
 const encoder = new TextEncoder();
