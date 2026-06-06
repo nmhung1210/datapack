@@ -200,17 +200,17 @@ describe("MetaPack test", () => {
 
     // UINT64
     expect(unpack(pack(BigInt(0), UINT64), UINT64)).toEqual(BigInt(0));
-    expect(unpack(pack(BigInt("18446744073709551615"), UINT64), UINT64)).toEqual(
-      BigInt("18446744073709551615")
-    );
+    expect(
+      unpack(pack(BigInt("18446744073709551615"), UINT64), UINT64),
+    ).toEqual(BigInt("18446744073709551615"));
 
     // INT64
-    expect(
-      unpack(pack(BigInt("-9223372036854775808"), INT64), INT64)
-    ).toEqual(BigInt("-9223372036854775808"));
-    expect(
-      unpack(pack(BigInt("9223372036854775807"), INT64), INT64)
-    ).toEqual(BigInt("9223372036854775807"));
+    expect(unpack(pack(BigInt("-9223372036854775808"), INT64), INT64)).toEqual(
+      BigInt("-9223372036854775808"),
+    );
+    expect(unpack(pack(BigInt("9223372036854775807"), INT64), INT64)).toEqual(
+      BigInt("9223372036854775807"),
+    );
   });
 
   it("should handle string edge cases", () => {
@@ -270,34 +270,34 @@ describe("MetaPack test", () => {
   it("should handle all error scenarios", () => {
     // 1. Packer: Invalid data types
     expect(() => pack(123, STRING)).toThrow(
-      "Invalid data type for STRING. Expected string."
+      "Invalid data type for STRING. Expected string.",
     );
     expect(() => pack("hello", UINT8)).toThrow(
-      "Invalid data type for UINT8. Expected number."
+      "Invalid data type for UINT8. Expected number.",
     );
     expect(() => pack(123, BOOL)).toThrow(
-      "Invalid data type for BOOL. Expected boolean."
+      "Invalid data type for BOOL. Expected boolean.",
     );
     expect(() => pack("hello", INT8)).toThrow(
-      "Invalid data type for INT8. Expected number."
+      "Invalid data type for INT8. Expected number.",
     );
     expect(() => pack("hello", UINT16)).toThrow(
-      "Invalid data type for UINT16. Expected number."
+      "Invalid data type for UINT16. Expected number.",
     );
     expect(() => pack("hello", INT16)).toThrow(
-      "Invalid data type for INT16. Expected number."
+      "Invalid data type for INT16. Expected number.",
     );
     expect(() => pack("hello", UINT32)).toThrow(
-      "Invalid data type for UINT32. Expected number."
+      "Invalid data type for UINT32. Expected number.",
     );
     expect(() => pack("hello", INT32)).toThrow(
-      "Invalid data type for INT32. Expected number."
+      "Invalid data type for INT32. Expected number.",
     );
     expect(() => pack("hello", FLOAT)).toThrow(
-      "Invalid data type for FLOAT. Expected number."
+      "Invalid data type for FLOAT. Expected number.",
     );
     expect(() => pack(123, BINARY)).toThrow(
-      "Invalid data type for BINARY. Expected Uint8Array."
+      "Invalid data type for BINARY. Expected Uint8Array.",
     );
 
     // 2. Unpacker: Buffer Overflows (should throw RangeError)
@@ -305,7 +305,9 @@ describe("MetaPack test", () => {
     expect(() => unpack(packed8, UINT16)).toThrow(RangeError);
 
     const smallBuffer = new Uint8Array([0, 0, 0, 10]); // Length 10, but no data
-    expect(() => unpack(smallBuffer, STRING, { useCheckSum: false, useEncrypt: false })).toThrow(RangeError);
+    expect(() =>
+      unpack(smallBuffer, STRING, { useCheckSum: false, useEncrypt: false }),
+    ).toThrow(RangeError);
 
     const packedArray = pack([1, 2], [UINT8]);
     const malformedArray = new Uint8Array(4 + packedArray.length - 4);
@@ -313,11 +315,16 @@ describe("MetaPack test", () => {
     new DataView(malformedArray.buffer).setUint32(0, 5, false);
     // Copy the actual data (only 2 elements)
     malformedArray.set(packedArray.subarray(4), 4);
-    expect(() => unpack(malformedArray, [UINT8], { useCheckSum: false, useEncrypt: false })).toThrow(RangeError);
+    expect(() =>
+      unpack(malformedArray, [UINT8], {
+        useCheckSum: false,
+        useEncrypt: false,
+      }),
+    ).toThrow(RangeError);
 
     // 3. Unpacker: Invalid Package (checksum)
     expect(() =>
-      unpack(new Uint8Array([1]), UINT8, { useCheckSum: true })
+      unpack(new Uint8Array([1]), UINT8, { useCheckSum: true }),
     ).toThrow("Invalid package!");
 
     // 4. Unpacker: Data Mismatch (checksum)
@@ -327,20 +334,29 @@ describe("MetaPack test", () => {
     const packedWithChecksum = pack(
       checksumData,
       checksumSchema,
-      checksumOptions
+      checksumOptions,
     );
     const corruptedPacked = new Uint8Array(packedWithChecksum);
-    const corruptedView = new DataView(corruptedPacked.buffer, corruptedPacked.byteOffset);
+    const corruptedView = new DataView(
+      corruptedPacked.buffer,
+      corruptedPacked.byteOffset,
+    );
     corruptedView.setInt16(corruptedPacked.length - 2, 999, false);
     expect(() =>
-      unpack(corruptedPacked, checksumSchema, checksumOptions)
+      unpack(corruptedPacked, checksumSchema, checksumOptions),
     ).toThrow(/Data mismatch!/);
 
     // 5. Unpacker: Failures for empty/invalid schemas and data
     expect(() => unpack(new Uint8Array([]), UINT8)).toThrow("Invalid package!");
-    expect(() => unpack(pack(1, UINT8), null as any)).toThrow("Invalid schema!");
-    expect(() => unpack(pack(1, UINT8), undefined as any)).toThrow("Invalid schema!");
-    expect(() => unpack(pack(1, UINT8), "abc" as any)).toThrow("Invalid schema!");
+    expect(() => unpack(pack(1, UINT8), null as any)).toThrow(
+      "Invalid schema!",
+    );
+    expect(() => unpack(pack(1, UINT8), undefined as any)).toThrow(
+      "Invalid schema!",
+    );
+    expect(() => unpack(pack(1, UINT8), "abc" as any)).toThrow(
+      "Invalid schema!",
+    );
   });
 });
 
@@ -395,7 +411,7 @@ describe("FLOAT64 (double precision) coverage", () => {
 
   it("should throw for non-number input", () => {
     expect(() => pack("x", FLOAT64)).toThrow(
-      "Invalid data type for FLOAT64. Expected number."
+      "Invalid data type for FLOAT64. Expected number.",
     );
   });
 
@@ -409,7 +425,11 @@ describe("FLOAT64 (double precision) coverage", () => {
 
   it("should work inside nested objects", () => {
     const schema = { lat: FLOAT64, lng: FLOAT64, meta: { alt: FLOAT64 } };
-    const value = { lat: 51.50735090000001, lng: -0.12775829999998223, meta: { alt: 35.123456789 } };
+    const value = {
+      lat: 51.50735090000001,
+      lng: -0.12775829999998223,
+      meta: { alt: 35.123456789 },
+    };
     const packed = pack(value, schema, opts);
     const unpacked = unpack(packed, schema, opts);
     expect(unpacked).toEqual(value);
@@ -465,16 +485,26 @@ describe("Integer range validation", () => {
     expect(unpack(pack(0, UINT8, opts), UINT8, opts)).toBe(0);
     expect(unpack(pack(-128, INT8, opts), INT8, opts)).toBe(-128);
     expect(unpack(pack(127, INT8, opts), INT8, opts)).toBe(127);
-    expect(unpack(pack(4294967295, UINT32, opts), UINT32, opts)).toBe(4294967295);
-    expect(unpack(pack(-2147483648, INT32, opts), INT32, opts)).toBe(-2147483648);
+    expect(unpack(pack(4294967295, UINT32, opts), UINT32, opts)).toBe(
+      4294967295,
+    );
+    expect(unpack(pack(-2147483648, INT32, opts), INT32, opts)).toBe(
+      -2147483648,
+    );
   });
 
   it("should reject out-of-range and non-integer 64-bit values", () => {
     expect(() => pack(BigInt(-1), UINT64)).toThrow(RangeError);
-    expect(() => pack(BigInt("18446744073709551616"), UINT64)).toThrow(RangeError);
+    expect(() => pack(BigInt("18446744073709551616"), UINT64)).toThrow(
+      RangeError,
+    );
     expect(() => pack(1.5, UINT64)).toThrow(RangeError);
-    expect(() => pack(BigInt("9223372036854775808"), INT64)).toThrow(RangeError);
-    expect(() => pack(BigInt("-9223372036854775809"), INT64)).toThrow(RangeError);
+    expect(() => pack(BigInt("9223372036854775808"), INT64)).toThrow(
+      RangeError,
+    );
+    expect(() => pack(BigInt("-9223372036854775809"), INT64)).toThrow(
+      RangeError,
+    );
     expect(() => pack(1.5, INT64)).toThrow(RangeError);
   });
 
@@ -493,7 +523,9 @@ describe("Integer range validation", () => {
 describe("secret validation", () => {
   it("should reject a non-integer secret", () => {
     expect(() => pack(1, UINT8, { secret: 1.5 })).toThrow(RangeError);
-    expect(() => unpack(pack(1, UINT8), UINT8, { secret: 1.5 })).toThrow(RangeError);
+    expect(() => unpack(pack(1, UINT8), UINT8, { secret: 1.5 })).toThrow(
+      RangeError,
+    );
   });
 
   it("should accept negative and large integer secrets", () => {
@@ -527,7 +559,7 @@ describe("keystream encryption", () => {
     const cipher = packed.subarray(4);
     const diffs = new Set<number>();
     for (let i = 1; i < cipher.length; i++) {
-      diffs.add((cipher[i] - cipher[i - 1]) & 0xFF);
+      diffs.add((cipher[i] - cipher[i - 1]) & 0xff);
     }
     // A linear shift would make every consecutive diff identical (size 1).
     expect(diffs.size).toBeGreaterThan(1);
@@ -539,9 +571,18 @@ describe("keystream encryption", () => {
     // catches (a variable-width one may instead overrun on a garbled length).
     const data = { a: 123, b: 45678 };
     const schema = { a: UINT8, b: UINT32 };
-    const packed = pack(data, schema, { useEncrypt: true, useCheckSum: true, secret: 1000 });
-    expect(() => unpack(packed, schema, { useEncrypt: true, useCheckSum: true, secret: 1001 }))
-      .toThrow("Data mismatch!");
+    const packed = pack(data, schema, {
+      useEncrypt: true,
+      useCheckSum: true,
+      secret: 1000,
+    });
+    expect(() =>
+      unpack(packed, schema, {
+        useEncrypt: true,
+        useCheckSum: true,
+        secret: 1001,
+      }),
+    ).toThrow("Data mismatch!");
   });
 });
 
@@ -553,13 +594,13 @@ describe("Large-payload checksum exactness", () => {
     this.timeout(30000);
     const n = 10_000_000;
     const data = new Uint8Array(n);
-    for (let i = 0; i < n; i++) data[i] = (i * 31 + 7) & 0xFF;
+    for (let i = 0; i < n; i++) data[i] = (i * 31 + 7) & 0xff;
 
     const csumOpts = { useCheckSum: true, useEncrypt: false };
     const packedC = pack(data, BINARY, csumOpts);
     expect(unpack(packedC, BINARY, csumOpts)).toEqual(data);
     const corruptC = new Uint8Array(packedC);
-    corruptC[1000] ^= 0xFF;
+    corruptC[1000] ^= 0xff;
     expect(() => unpack(corruptC, BINARY, csumOpts)).toThrow("Data mismatch!");
 
     // Encrypted path >5M routes through the block-reducing decodeBuffer.
@@ -567,7 +608,7 @@ describe("Large-payload checksum exactness", () => {
     const packedB = pack(data, BINARY, bothOpts);
     expect(unpack(packedB, BINARY, bothOpts)).toEqual(data);
     const corruptB = new Uint8Array(packedB);
-    corruptB[5_000_000] ^= 0xFF;
+    corruptB[5_000_000] ^= 0xff;
     expect(() => unpack(corruptB, BINARY, bothOpts)).toThrow("Data mismatch!");
   });
 });
@@ -589,7 +630,7 @@ describe("Checksum (position-weighted byte sum)", () => {
     const corrupted = new Uint8Array(packed);
     const tmp = corrupted[0];
     corrupted[0] = corrupted[1]; // swap the two data bytes — a plain
-    corrupted[1] = tmp;          // byte-sum would not change, but +i does
+    corrupted[1] = tmp; // byte-sum would not change, but +i does
     expect(() => unpack(corrupted, schema, opts)).toThrow("Data mismatch!");
   });
 
@@ -645,9 +686,7 @@ describe("Parallel pack test", () => {
         postId: 100,
         title: "Hello World!",
         score: 999,
-        authors: [
-          { userId: 102, nickName: "DEF", isVip: false, age: 28 },
-        ],
+        authors: [{ userId: 102, nickName: "DEF", isVip: false, age: 28 }],
       },
     ],
   };
@@ -656,7 +695,11 @@ describe("Parallel pack test", () => {
     const opts = { useCheckSum: false, useEncrypt: false };
     const sequential = pack(stateData, stateDataSchema, opts);
     const parts = packParts(stateData, stateDataSchema as any);
-    const combined = combinePackedParts(parts, Object.keys(stateDataSchema), opts);
+    const combined = combinePackedParts(
+      parts,
+      Object.keys(stateDataSchema),
+      opts,
+    );
     expect(combined).toEqual(sequential);
 
     // Verify unpack works on combined result
@@ -668,7 +711,11 @@ describe("Parallel pack test", () => {
     const opts = { useCheckSum: true, useEncrypt: true, secret: 42 };
     const sequential = pack(stateData, stateDataSchema, opts);
     const parts = packParts(stateData, stateDataSchema as any);
-    const combined = combinePackedParts(parts, Object.keys(stateDataSchema), opts);
+    const combined = combinePackedParts(
+      parts,
+      Object.keys(stateDataSchema),
+      opts,
+    );
     expect(combined).toEqual(sequential);
 
     const unpacked = unpack(combined, stateDataSchema, opts);
@@ -686,8 +733,14 @@ describe("Parallel pack test", () => {
   });
 
   it("packParallel should fallback for non-object schemas", async () => {
-    const result = await packParallel([1, 2, 3], [UINT8], { useCheckSum: false, useEncrypt: false });
-    const expected = pack([1, 2, 3], [UINT8], { useCheckSum: false, useEncrypt: false });
+    const result = await packParallel([1, 2, 3], [UINT8], {
+      useCheckSum: false,
+      useEncrypt: false,
+    });
+    const expected = pack([1, 2, 3], [UINT8], {
+      useCheckSum: false,
+      useEncrypt: false,
+    });
     expect(result).toEqual(expected);
   });
 
@@ -702,7 +755,9 @@ describe("Parallel pack test", () => {
     const users = unpackPart(parts["users"], [profileSchema]);
     expect(users).toEqual(stateData.users);
 
-    const posts = unpackPart(parts["posts"], [(stateDataSchema as any).posts[0]]);
+    const posts = unpackPart(parts["posts"], [
+      (stateDataSchema as any).posts[0],
+    ]);
     expect(posts).toEqual(stateData.posts);
   });
 
@@ -773,7 +828,9 @@ describe("Parallel pack test", () => {
 
   it("splitPackedParts should throw on invalid package", () => {
     const schema = { a: UINT8 };
-    expect(() => splitPackedParts(new Uint8Array([1]), schema as any)).toThrow("Invalid package!");
+    expect(() => splitPackedParts(new Uint8Array([1]), schema as any)).toThrow(
+      "Invalid package!",
+    );
   });
 
   it("splitPackedParts should throw on checksum mismatch (encrypt)", () => {
@@ -785,7 +842,9 @@ describe("Parallel pack test", () => {
     // Corrupt checksum bytes
     const view = new DataView(corrupted.buffer);
     view.setInt16(corrupted.length - 2, 9999, false);
-    expect(() => splitPackedParts(corrupted, schema as any, opts)).toThrow("Data mismatch!");
+    expect(() => splitPackedParts(corrupted, schema as any, opts)).toThrow(
+      "Data mismatch!",
+    );
   });
 
   it("splitPackedParts should throw on checksum mismatch (no encrypt)", () => {
@@ -796,7 +855,9 @@ describe("Parallel pack test", () => {
     const corrupted = new Uint8Array(packed);
     const view = new DataView(corrupted.buffer);
     view.setInt16(corrupted.length - 2, 9999, false);
-    expect(() => splitPackedParts(corrupted, schema as any, opts)).toThrow("Data mismatch!");
+    expect(() => splitPackedParts(corrupted, schema as any, opts)).toThrow(
+      "Data mismatch!",
+    );
   });
 
   it("splitPackedParts should handle UINT64/INT64 fields", () => {
@@ -918,7 +979,7 @@ describe("Branch coverage", () => {
   it("should trigger buffer grow for large BINARY data", () => {
     const opts = { useCheckSum: false, useEncrypt: false };
     const bigBin = new Uint8Array(12000);
-    bigBin.fill(0xAB);
+    bigBin.fill(0xab);
     const packed = pack(bigBin, BINARY, opts);
     const unpacked = unpack(packed, BINARY, opts);
     expect(unpacked).toEqual(bigBin);
@@ -1085,7 +1146,10 @@ describe("setDefaultConfig", () => {
     expect(unpacked).toEqual(data);
 
     // Verify no checksum (packed size = raw data, no extra 2 bytes)
-    const packedWithChecksum = pack(data, schema, { useCheckSum: true, useEncrypt: false });
+    const packedWithChecksum = pack(data, schema, {
+      useCheckSum: true,
+      useEncrypt: false,
+    });
     expect(packedWithChecksum.length).toEqual(packed.length + 2);
   });
 
@@ -1117,7 +1181,13 @@ describe("setDefaultConfig", () => {
     const opts = { useEncrypt: true, useCheckSum: true, secret: 555 };
     const packed = pack(data, UINT8, opts);
     // Should fail to unpack with wrong secret
-    expect(() => unpack(packed, UINT8, { useEncrypt: true, useCheckSum: true, secret: 999 })).toThrow("Data mismatch!");
+    expect(() =>
+      unpack(packed, UINT8, {
+        useEncrypt: true,
+        useCheckSum: true,
+        secret: 999,
+      }),
+    ).toThrow("Data mismatch!");
     // Should succeed with matching options
     const unpacked = unpack(packed, UINT8, opts);
     expect(unpacked).toEqual(42);
@@ -1140,7 +1210,11 @@ describe("Non-encrypted unpack path coverage", () => {
 
   it("should unpack INT16 / INT64 / OBJECT", () => {
     const schema = { a: INT16, b: INT64, c: OBJECT };
-    const data = { a: -12345, b: BigInt("-9007199254740993"), c: { nested: [1, 2] } };
+    const data = {
+      a: -12345,
+      b: BigInt("-9007199254740993"),
+      c: { nested: [1, 2] },
+    };
     const packed = pack(data, schema, opts);
     expect(unpack(packed, schema, opts)).toEqual(data);
   });
@@ -1194,16 +1268,18 @@ describe("Encrypted unpack path coverage", () => {
     const packed = pack(str, STRING, opts);
     // Drop bytes so the declared length runs past the buffer end.
     const truncated = packed.slice(0, packed.length - 4);
-    expect(() => unpack(truncated, STRING, opts))
-      .toThrow("Attempt to access memory outside buffer bounds");
+    expect(() => unpack(truncated, STRING, opts)).toThrow(
+      "Attempt to access memory outside buffer bounds",
+    );
   });
 
   it("should throw on a truncated BINARY payload (decInto bounds)", () => {
     const bin = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
     const packed = pack(bin, BINARY, opts);
     const truncated = packed.slice(0, packed.length - 4);
-    expect(() => unpack(truncated, BINARY, opts))
-      .toThrow("Attempt to access memory outside buffer bounds");
+    expect(() => unpack(truncated, BINARY, opts)).toThrow(
+      "Attempt to access memory outside buffer bounds",
+    );
   });
 });
 
@@ -1216,16 +1292,18 @@ describe("skipSchema bounds handling", () => {
     // Keep field a + only 2 of the 4 length-prefix bytes of field b, so the
     // prefix read itself overruns (ctx.offset + 4 > buf.length at line 401).
     const truncated = packed.slice(0, 3);
-    expect(() => splitPackedParts(truncated, schema as any, opts))
-      .toThrow("Attempt to access memory outside buffer bounds");
+    expect(() => splitPackedParts(truncated, schema as any, opts)).toThrow(
+      "Attempt to access memory outside buffer bounds",
+    );
   });
 
   it("should throw when a fixed-width field runs past the buffer end", () => {
     // Pack one UINT8, but split as { a: UINT8, b: UINT32 } so skipSchema
     // advances past the end on b (hits the post-skip bounds check at line 409).
     const packed = pack({ a: 9 }, { a: UINT8 }, opts);
-    expect(() => splitPackedParts(packed, { a: UINT8, b: UINT32 } as any, opts))
-      .toThrow("Attempt to access memory outside buffer bounds");
+    expect(() =>
+      splitPackedParts(packed, { a: UINT8, b: UINT32 } as any, opts),
+    ).toThrow("Attempt to access memory outside buffer bounds");
   });
 });
 
@@ -1235,36 +1313,54 @@ describe("Invalid schema handling", () => {
 
   it("should throw on an unknown numeric schema (non-encrypted)", () => {
     const packed = pack(1, UINT8, { useCheckSum: false, useEncrypt: false });
-    expect(() => unpack(packed, badType, { useCheckSum: false, useEncrypt: false }))
-      .toThrow("Invalid schema!");
+    expect(() =>
+      unpack(packed, badType, { useCheckSum: false, useEncrypt: false }),
+    ).toThrow("Invalid schema!");
   });
 
   it("should throw on an unknown numeric schema (encrypted)", () => {
-    const packed = pack(1, UINT8, { useCheckSum: false, useEncrypt: true, secret: 5 });
-    expect(() => unpack(packed, badType, { useCheckSum: false, useEncrypt: true, secret: 5 }))
-      .toThrow("Invalid schema!");
+    const packed = pack(1, UINT8, {
+      useCheckSum: false,
+      useEncrypt: true,
+      secret: 5,
+    });
+    expect(() =>
+      unpack(packed, badType, {
+        useCheckSum: false,
+        useEncrypt: true,
+        secret: 5,
+      }),
+    ).toThrow("Invalid schema!");
   });
 
   it("should throw on a null schema", () => {
     const packed = pack(1, UINT8, { useCheckSum: false, useEncrypt: false });
-    expect(() => unpack(packed, null as any, { useCheckSum: false, useEncrypt: false }))
-      .toThrow("Invalid schema!");
+    expect(() =>
+      unpack(packed, null as any, { useCheckSum: false, useEncrypt: false }),
+    ).toThrow("Invalid schema!");
   });
 
   it("should throw on a non-object/non-number schema (string)", () => {
     const packed = pack(1, UINT8, { useCheckSum: false, useEncrypt: false });
     // A string schema is neither a DataType, array, nor object → fallthrough.
-    expect(() => unpack(packed, "nope" as any, { useCheckSum: false, useEncrypt: false }))
-      .toThrow("Invalid schema!");
-    expect(() => unpack(packed, "nope" as any, { useCheckSum: false, useEncrypt: true, secret: 1 }))
-      .toThrow("Invalid schema!");
+    expect(() =>
+      unpack(packed, "nope" as any, { useCheckSum: false, useEncrypt: false }),
+    ).toThrow("Invalid schema!");
+    expect(() =>
+      unpack(packed, "nope" as any, {
+        useCheckSum: false,
+        useEncrypt: true,
+        secret: 1,
+      }),
+    ).toThrow("Invalid schema!");
   });
 
   it("should throw on an unknown numeric schema in splitPackedParts (skipSchema)", () => {
     const schema = { a: UINT8 };
     const opts = { useCheckSum: false, useEncrypt: false };
     const packed = pack({ a: 1 }, schema, opts);
-    expect(() => splitPackedParts(packed, { a: badType } as any, opts))
-      .toThrow("Invalid schema!");
+    expect(() => splitPackedParts(packed, { a: badType } as any, opts)).toThrow(
+      "Invalid schema!",
+    );
   });
 });

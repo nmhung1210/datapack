@@ -1,4 +1,3 @@
-
 # datapack
 
 [![npm version](https://badge.fury.io/js/datapack.svg)](https://badge.fury.io/js/datapack)
@@ -27,6 +26,7 @@ npm install datapack
 ## Usage
 
 ### Simple value
+
 ```javascript
 import { pack, unpack, UINT8 } from "datapack";
 
@@ -37,6 +37,7 @@ console.log(unpacked); // 100
 ```
 
 ### Array
+
 ```javascript
 import { pack, unpack, UINT8, INT16 } from "datapack";
 
@@ -49,6 +50,7 @@ console.log(unpacked); // [100, 200, 50]
 ```
 
 ### Object
+
 ```javascript
 import { pack, unpack, UINT16, INT8 } from "datapack";
 
@@ -132,6 +134,7 @@ const user = unpack(packed, userSchema); // typed as { id: number; name: string 
 ```
 
 ### Complex data structures
+
 ```javascript
 import { pack, unpack, UINT32, STRING, BOOL, UINT8, UINT16 } from "datapack";
 
@@ -187,6 +190,7 @@ console.log(unpackedState);
 ```
 
 ### Options
+
 The `pack` and `unpack` functions accept an optional `options` object that allows you to enable checksum validation and encryption.
 
 ```javascript
@@ -214,7 +218,7 @@ console.log(unpacked);
 
 How the options behave on the wire:
 
-- **`useCheckSum`** appends a 2-byte, big-endian checksum computed as a *position-weighted* byte sum (`Σ byte[i] * (i + 1)`, mod 65536). Unlike a plain byte sum it is sensitive to byte transpositions and shifts, so reordered or moved bytes are detected. A mismatch throws `Data mismatch!` on unpack.
+- **`useCheckSum`** appends a 2-byte, big-endian checksum computed as a _position-weighted_ byte sum (`Σ byte[i] * (i + 1)`, mod 65536). Unlike a plain byte sum it is sensitive to byte transpositions and shifts, so reordered or moved bytes are detected. A mismatch throws `Data mismatch!` on unpack.
 - **`useEncrypt`** shifts each byte by a position-keyed keystream byte derived from `secret` (`byte + keystream(secret, index)`, mod 256), reversed on unpack. The keystream uses an avalanche hash of the seed and position, so identical plaintext bytes encrypt to unrelated values and the shift isn't linearly predictable. It is still lightweight obfuscation, not cryptographically secure — use TLS or a real cipher for sensitive data. Pack and unpack must use the same `secret`.
 - When both are enabled, the checksum is computed over the plaintext, then the bytes are encrypted; unpack decrypts first and then validates.
 
@@ -223,9 +227,9 @@ How the options behave on the wire:
 Integer types are validated when packing. Passing a non-integer or an out-of-range value throws a `RangeError` rather than silently wrapping or truncating:
 
 ```javascript
-pack(256, UINT8);  // RangeError: Value out of range for UINT8 (0..255).
-pack(-1, UINT8);   // RangeError
-pack(1.5, INT32);  // RangeError: non-integer
+pack(256, UINT8); // RangeError: Value out of range for UINT8 (0..255).
+pack(-1, UINT8); // RangeError
+pack(1.5, INT32); // RangeError: non-integer
 ```
 
 ### Default Configuration
@@ -252,9 +256,16 @@ For large object schemas, you can pack and unpack each field independently. This
 
 ```javascript
 import {
-  packParts, combinePackedParts, packParallel,
-  splitPackedParts, unpackPart, unpackParallel,
-  UINT32, STRING, UINT8, BOOL
+  packParts,
+  combinePackedParts,
+  packParallel,
+  splitPackedParts,
+  unpackPart,
+  unpackParallel,
+  UINT32,
+  STRING,
+  UINT8,
+  BOOL,
 } from "datapack";
 
 const schema = {
@@ -264,7 +275,10 @@ const schema = {
 };
 
 const data = {
-  users: [{ userId: 1, name: "Alice" }, { userId: 2, name: "Bob" }],
+  users: [
+    { userId: 1, name: "Alice" },
+    { userId: 2, name: "Bob" },
+  ],
   count: 2,
   active: true,
 };
@@ -277,7 +291,10 @@ const packed = combinePackedParts(parts, Object.keys(schema));
 const packed2 = await packParallel(data, schema);
 
 // Split packed buffer into per-field slices (for parallel unpack)
-const fieldSlices = splitPackedParts(packed, schema, { useCheckSum: false, useEncrypt: false });
+const fieldSlices = splitPackedParts(packed, schema, {
+  useCheckSum: false,
+  useEncrypt: false,
+});
 
 // Unpack individual fields
 const users = unpackPart(fieldSlices.users, schema.users);
@@ -287,6 +304,7 @@ const result = await unpackParallel(packed, schema);
 ```
 
 ### All Data Types
+
 ```javascript
 import {
   pack,
@@ -377,85 +395,87 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 
 **Host Specs:**
 
-*   **CPU:** 10 cores
-*   **OS:** Linux
-*   **Node.js:** v24
+- **CPU:** 10 cores
+- **OS:** Linux
+- **Node.js:** v24
 
 **Results (datapack with no checksum/encryption vs. native JSON — the fairest head-to-head, since JSON provides neither):**
 
-| Scenario | Datapack (pack) | JSON (stringify) | Datapack (unpack) | JSON (parse) |
-|---|---|---|---|---|
+| Scenario                      | Datapack (pack)     | JSON (stringify)   | Datapack (unpack)  | JSON (parse)       |
+| ----------------------------- | ------------------- | ------------------ | ------------------ | ------------------ |
 | Simple object (number fields) | ~11,650,000 ops/sec | ~4,519,000 ops/sec | ~6,974,000 ops/sec | ~3,399,000 ops/sec |
-| Complex object (10x nested) | ~470,000 ops/sec | ~448,000 ops/sec | ~332,000 ops/sec | ~173,000 ops/sec |
-| Big object (~1MB) | ~313 ops/sec | ~174 ops/sec | ~130 ops/sec | ~89 ops/sec |
+| Complex object (10x nested)   | ~470,000 ops/sec    | ~448,000 ops/sec   | ~332,000 ops/sec   | ~173,000 ops/sec   |
+| Big object (~1MB)             | ~313 ops/sec        | ~174 ops/sec       | ~130 ops/sec       | ~89 ops/sec        |
 
 **Key takeaways:**
+
 - **Simple objects:** pack is ~2.6x faster than JSON.stringify, unpack is ~2.1x faster than JSON.parse
 - **Complex objects:** unpack is ~1.9x faster than JSON.parse, pack roughly matches JSON.stringify
 - **Large objects (~1MB):** pack is ~1.8x faster than JSON.stringify, unpack is ~1.5x faster than JSON.parse
 - **Binary size:** 3-4.5x smaller than JSON for equivalent data
 
 **Cost of the optional layers** (relative to bare pack/unpack, measured on the same scenarios):
+
 - **Checksum** (position-weighted byte sum) adds ~5% on small payloads, scaling to ~20-25% on a 1MB object — one extra O(n) arithmetic pass.
-- **Encryption** (position-keyed keystream byte shift) is nearly free on pack and, on unpack, often *faster* than the plain path thanks to the fused inline-decrypt parser.
+- **Encryption** (position-keyed keystream byte shift) is nearly free on pack and, on unpack, often _faster_ than the plain path thanks to the fused inline-decrypt parser.
 
 ### Packed Size Comparison
 
-| Scenario | Datapack Size | JSON Size | Reduction |
-|---|---|---|---|
-| Simple object (number fields) | 18 bytes | 82 bytes | 78% smaller |
-| Complex object | 528 bytes | 1,731 bytes | 70% smaller |
-| Big object (~1MB) | 1,300,008 bytes | 4,275,021 bytes | 70% smaller |
+| Scenario                      | Datapack Size   | JSON Size       | Reduction   |
+| ----------------------------- | --------------- | --------------- | ----------- |
+| Simple object (number fields) | 18 bytes        | 82 bytes        | 78% smaller |
+| Complex object                | 528 bytes       | 1,731 bytes     | 70% smaller |
+| Big object (~1MB)             | 1,300,008 bytes | 4,275,021 bytes | 70% smaller |
 
 ## API Reference
 
 ### Core Functions
 
-| Function | Description |
-|---|---|
-| `pack(data, schema, options?)` | Pack data into binary format |
-| `unpack(data, schema, options?)` | Unpack binary data back to JS values |
-| `setDefaultConfig(options)` | Set global default options for all pack/unpack calls |
-| `defineSchema(schema)` | Identity helper that preserves literal schema types for inference |
+| Function                         | Description                                                       |
+| -------------------------------- | ----------------------------------------------------------------- |
+| `pack(data, schema, options?)`   | Pack data into binary format                                      |
+| `unpack(data, schema, options?)` | Unpack binary data back to JS values                              |
+| `setDefaultConfig(options)`      | Set global default options for all pack/unpack calls              |
+| `defineSchema(schema)`           | Identity helper that preserves literal schema types for inference |
 
 ### Parallel API
 
-| Function | Description |
-|---|---|
-| `packParts(data, schema)` | Pack each object field separately |
-| `combinePackedParts(parts, keys, options?)` | Combine field parts into final buffer |
-| `packParallel(data, schema, options?)` | Convenience async pack with auto-split |
-| `splitPackedParts(data, schema, options?)` | Split packed buffer into per-field slices |
-| `unpackPart(part, schema)` | Unpack a single field slice |
-| `unpackParallel(data, schema, options?)` | Convenience async unpack with auto-split |
+| Function                                    | Description                               |
+| ------------------------------------------- | ----------------------------------------- |
+| `packParts(data, schema)`                   | Pack each object field separately         |
+| `combinePackedParts(parts, keys, options?)` | Combine field parts into final buffer     |
+| `packParallel(data, schema, options?)`      | Convenience async pack with auto-split    |
+| `splitPackedParts(data, schema, options?)`  | Split packed buffer into per-field slices |
+| `unpackPart(part, schema)`                  | Unpack a single field slice               |
+| `unpackParallel(data, schema, options?)`    | Convenience async unpack with auto-split  |
 
 ### Options
 
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `useCheckSum` | boolean | `true` | Append a 2-byte position-weighted checksum for integrity validation |
-| `useEncrypt` | boolean | `true` | Apply a position-keyed keystream byte-shift cipher |
-| `secret` | number | `1210` | Encryption key — must be an integer and match between pack and unpack |
-| `chunkSize` | number | `10240` | Initial pack buffer size in bytes; grows automatically as needed |
+| Option        | Type    | Default | Description                                                           |
+| ------------- | ------- | ------- | --------------------------------------------------------------------- |
+| `useCheckSum` | boolean | `true`  | Append a 2-byte position-weighted checksum for integrity validation   |
+| `useEncrypt`  | boolean | `true`  | Apply a position-keyed keystream byte-shift cipher                    |
+| `secret`      | number  | `1210`  | Encryption key — must be an integer and match between pack and unpack |
+| `chunkSize`   | number  | `10240` | Initial pack buffer size in bytes; grows automatically as needed      |
 
 ### Data Types
 
-| Type | Size | Range |
-|---|---|---|
-| `UINT8` | 1 byte | 0 to 255 |
-| `INT8` | 1 byte | -128 to 127 |
-| `UINT16` | 2 bytes | 0 to 65,535 |
-| `INT16` | 2 bytes | -32,768 to 32,767 |
-| `UINT32` | 4 bytes | 0 to 4,294,967,295 |
-| `INT32` | 4 bytes | -2,147,483,648 to 2,147,483,647 |
-| `UINT64` | 8 bytes | 0 to 2^64-1 (BigInt) |
-| `INT64` | 8 bytes | -2^63 to 2^63-1 (BigInt) |
-| `FLOAT` | 4 bytes | 32-bit IEEE 754 (single precision) |
-| `FLOAT64` | 8 bytes | 64-bit IEEE 754 (double precision) |
-| `BOOL` | 1 byte | true/false |
-| `STRING` | 4 + n bytes | UTF-8 encoded string |
-| `BINARY` | 4 + n bytes | Raw Uint8Array |
-| `OBJECT` | 4 + n bytes | JSON-serialized object |
+| Type      | Size        | Range                              |
+| --------- | ----------- | ---------------------------------- |
+| `UINT8`   | 1 byte      | 0 to 255                           |
+| `INT8`    | 1 byte      | -128 to 127                        |
+| `UINT16`  | 2 bytes     | 0 to 65,535                        |
+| `INT16`   | 2 bytes     | -32,768 to 32,767                  |
+| `UINT32`  | 4 bytes     | 0 to 4,294,967,295                 |
+| `INT32`   | 4 bytes     | -2,147,483,648 to 2,147,483,647    |
+| `UINT64`  | 8 bytes     | 0 to 2^64-1 (BigInt)               |
+| `INT64`   | 8 bytes     | -2^63 to 2^63-1 (BigInt)           |
+| `FLOAT`   | 4 bytes     | 32-bit IEEE 754 (single precision) |
+| `FLOAT64` | 8 bytes     | 64-bit IEEE 754 (double precision) |
+| `BOOL`    | 1 byte      | true/false                         |
+| `STRING`  | 4 + n bytes | UTF-8 encoded string               |
+| `BINARY`  | 4 + n bytes | Raw Uint8Array                     |
+| `OBJECT`  | 4 + n bytes | JSON-serialized object             |
 
 All multi-byte numeric values use **big-endian** byte order. Variable-length types (`STRING`, `BINARY`, `OBJECT`) are prefixed with a 4-byte unsigned length. Array schemas are length-prefixed with a `UINT32` count, and the schema entries repeat (via modulo indexing) to cover every element — so `[UINT8, INT16]` describes a sequence that alternates `UINT8`, `INT16`, `UINT8`, …
 

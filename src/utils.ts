@@ -1,4 +1,3 @@
-
 export enum DataTypes {
   UINT8 = 0,
   UINT16,
@@ -79,13 +78,14 @@ export const defaultConfig: IPackConfig = {
   chunkSize: 10240,
   useEncrypt: true,
   useCheckSum: true,
-  secret: 1210
+  secret: 1210,
 };
 
 export function setDefaultConfig(opts: IPackConfigOptions): void {
   if (opts.chunkSize !== undefined) defaultConfig.chunkSize = opts.chunkSize;
   if (opts.useEncrypt !== undefined) defaultConfig.useEncrypt = opts.useEncrypt;
-  if (opts.useCheckSum !== undefined) defaultConfig.useCheckSum = opts.useCheckSum;
+  if (opts.useCheckSum !== undefined)
+    defaultConfig.useCheckSum = opts.useCheckSum;
   if (opts.secret !== undefined) defaultConfig.secret = opts.secret;
 }
 
@@ -111,7 +111,7 @@ export function computeChecksum(bytes: Uint8Array, len: number): number {
   while (i < len) {
     const end = i + 8192 < len ? i + 8192 : len;
     for (; i < end; i++) {
-      sum += bytes[i] * ((i + 1) & 0xFFFF);
+      sum += bytes[i] * ((i + 1) & 0xffff);
     }
     sum %= 65536;
   }
@@ -131,11 +131,11 @@ export function computeChecksum(bytes: Uint8Array, len: number): number {
  * Note: this is lightweight obfuscation, not a cryptographically secure cipher.
  */
 export function keystreamByte(secret: number, i: number): number {
-  let x = (secret ^ Math.imul(i, 0x9E3779B1)) | 0;
+  let x = (secret ^ Math.imul(i, 0x9e3779b1)) | 0;
   x = Math.imul(x ^ (x >>> 16), 0x45d9f3b);
   x = Math.imul(x ^ (x >>> 13), 0x45d9f3b);
   x = (x ^ (x >>> 16)) >>> 0;
-  return x & 0xFF;
+  return x & 0xff;
 }
 
 /** Resolve per-call options against the defaults, once per pack/unpack entry point. */
@@ -148,7 +148,7 @@ export function resolveConfig(opt?: IPackConfigOptions): {
   // A fractional secret makes the byte shift asymmetric between pack and unpack
   // (it would silently corrupt data), so require an integer key.
   if (!Number.isInteger(secret)) {
-    throw new RangeError('secret must be an integer.');
+    throw new RangeError("secret must be an integer.");
   }
   return {
     useCheckSum: opt?.useCheckSum ?? defaultConfig.useCheckSum,
@@ -164,15 +164,21 @@ export function encodeUTF8(str: string): Uint8Array {
   return encoder.encode(str);
 }
 
-export function decodeUTF8(bytes: Uint8Array, start?: number, end?: number): string {
+export function decodeUTF8(
+  bytes: Uint8Array,
+  start?: number,
+  end?: number,
+): string {
   return decoder.decode(bytes.subarray(start, end));
 }
 
-export function toUint8Array(data: ArrayBufferLike | ArrayBuffer | Uint8Array | string): Uint8Array {
+export function toUint8Array(
+  data: ArrayBufferLike | ArrayBuffer | Uint8Array | string,
+): Uint8Array {
   if (data instanceof Uint8Array) {
     return data;
   }
-  if (typeof data === 'string') {
+  if (typeof data === "string") {
     return encoder.encode(data);
   }
   return new Uint8Array(data as ArrayBuffer);

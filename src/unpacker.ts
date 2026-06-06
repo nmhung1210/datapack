@@ -1,4 +1,3 @@
-
 import {
   DataTypes,
   Schema,
@@ -39,11 +38,12 @@ type DecState = { offset: number; sum: number; end: number; secret: number };
 /** Decrypt `n` bytes at the cursor into `scratch`, accumulating the checksum. */
 function decScratch(buff: Uint8Array, st: DecState, n: number): void {
   const p = st.offset;
-  if (p + n > st.end) throw new RangeError("Attempt to access memory outside buffer bounds");
+  if (p + n > st.end)
+    throw new RangeError("Attempt to access memory outside buffer bounds");
   let sum = st.sum;
   const secret = st.secret;
   for (let k = 0; k < n; k++) {
-    const d = (buff[p + k] - keystreamByte(secret, p + k)) & 0xFF;
+    const d = (buff[p + k] - keystreamByte(secret, p + k)) & 0xff;
     scratch[k] = d;
     sum += d * (p + k + 1);
   }
@@ -58,12 +58,13 @@ function decScratch(buff: Uint8Array, st: DecState, n: number): void {
  */
 function decVar(buff: Uint8Array, st: DecState, len: number): boolean {
   const p = st.offset;
-  if (p + len > st.end) throw new RangeError("Attempt to access memory outside buffer bounds");
+  if (p + len > st.end)
+    throw new RangeError("Attempt to access memory outside buffer bounds");
   let sum = st.sum;
   const secret = st.secret;
   let ascii = 0;
   for (let k = 0; k < len; k++) {
-    const d = (buff[p + k] - keystreamByte(secret, p + k)) & 0xFF;
+    const d = (buff[p + k] - keystreamByte(secret, p + k)) & 0xff;
     varScratch[k] = d;
     ascii |= d;
     sum += d * (p + k + 1);
@@ -74,13 +75,19 @@ function decVar(buff: Uint8Array, st: DecState, len: number): boolean {
 }
 
 /** Decrypt `len` bytes at the cursor into `target`, accumulating the checksum. */
-function decInto(buff: Uint8Array, st: DecState, target: Uint8Array, len: number): void {
+function decInto(
+  buff: Uint8Array,
+  st: DecState,
+  target: Uint8Array,
+  len: number,
+): void {
   const p = st.offset;
-  if (p + len > st.end) throw new RangeError("Attempt to access memory outside buffer bounds");
+  if (p + len > st.end)
+    throw new RangeError("Attempt to access memory outside buffer bounds");
   let sum = st.sum;
   const secret = st.secret;
   for (let k = 0; k < len; k++) {
-    const d = (buff[p + k] - keystreamByte(secret, p + k)) & 0xFF;
+    const d = (buff[p + k] - keystreamByte(secret, p + k)) & 0xff;
     target[k] = d;
     sum += d * (p + k + 1);
   }
@@ -91,7 +98,7 @@ function decInto(buff: Uint8Array, st: DecState, target: Uint8Array, len: number
 function doUnpackDec(
   schema: Schema | ReadonlyArray<Schema>,
   buff: Uint8Array,
-  st: DecState
+  st: DecState,
 ): any {
   if (typeof schema === "number") {
     switch (schema) {
@@ -142,11 +149,15 @@ function doUnpackDec(
         const isAscii = decVar(buff, st, length); // decrypts into varScratch
         if (isAscii) {
           if (length < 64) {
-            let str = '';
-            for (let i = 0; i < length; i++) str += String.fromCharCode(varScratch[i]);
+            let str = "";
+            for (let i = 0; i < length; i++)
+              str += String.fromCharCode(varScratch[i]);
             return str;
           }
-          return String.fromCharCode.apply(null, varScratch.subarray(0, length) as any);
+          return String.fromCharCode.apply(
+            null,
+            varScratch.subarray(0, length) as any,
+          );
         }
         return decoder.decode(varScratch.subarray(0, length));
       }
@@ -163,7 +174,7 @@ function doUnpackDec(
   }
 
   if (schema === null || schema === undefined) {
-    throw Error('Invalid schema!');
+    throw Error("Invalid schema!");
   }
 
   if (Array.isArray(schema)) {
@@ -197,7 +208,7 @@ function decodeBuffer(
   buff: Uint8Array,
   useCheckSum: boolean,
   useEncrypt: boolean,
-  secret: number
+  secret: number,
 ): Uint8Array {
   if (useEncrypt && useCheckSum) {
     // Decrypt (subtract the position-keyed keystream byte) and accumulate the
@@ -210,13 +221,16 @@ function decodeBuffer(
     while (i < dataEndOffset) {
       const end = i + 8192 < dataEndOffset ? i + 8192 : dataEndOffset;
       for (; i < end; i++) {
-        const d = (buff[i] - keystreamByte(secret, i)) & 0xFF;
+        const d = (buff[i] - keystreamByte(secret, i)) & 0xff;
         dataBuff[i] = d;
-        sum += d * ((i + 1) & 0xFFFF);
+        sum += d * ((i + 1) & 0xffff);
       }
       sum %= 65536;
     }
-    if (((sum >> 8) & 0xFF) !== buff[dataEndOffset] || (sum & 0xFF) !== buff[dataEndOffset + 1]) {
+    if (
+      ((sum >> 8) & 0xff) !== buff[dataEndOffset] ||
+      (sum & 0xff) !== buff[dataEndOffset + 1]
+    ) {
       throw new Error(`Data mismatch!`);
     }
     return dataBuff;
@@ -227,7 +241,7 @@ function decodeBuffer(
     const dataEndOffset = buff.length;
     const dataBuff = new Uint8Array(dataEndOffset);
     for (let i = 0; i < dataEndOffset; i++) {
-      dataBuff[i] = (buff[i] - keystreamByte(secret, i)) & 0xFF;
+      dataBuff[i] = (buff[i] - keystreamByte(secret, i)) & 0xff;
     }
     return dataBuff;
   }
@@ -236,7 +250,10 @@ function decodeBuffer(
     // Checksum only: no copy needed, just validate.
     const dataEndOffset = buff.length - 2;
     const sum = computeChecksum(buff, dataEndOffset);
-    if (((sum >> 8) & 0xFF) !== buff[dataEndOffset] || (sum & 0xFF) !== buff[dataEndOffset + 1]) {
+    if (
+      ((sum >> 8) & 0xff) !== buff[dataEndOffset] ||
+      (sum & 0xff) !== buff[dataEndOffset + 1]
+    ) {
       throw new Error(`Data mismatch!`);
     }
     return buff.subarray(0, dataEndOffset);
@@ -249,7 +266,7 @@ function doUnpack(
   schema: Schema | ReadonlyArray<Schema>,
   buf: Uint8Array,
   view: DataView,
-  ctx: { offset: number }
+  ctx: { offset: number },
 ): any {
   if (typeof schema === "number") {
     let val: any;
@@ -301,7 +318,10 @@ function doUnpack(
       case DataTypes.BINARY: {
         const length = view.getUint32(ctx.offset, false);
         ctx.offset += 4;
-        if (ctx.offset + length > buf.length) throw new RangeError("Attempt to access memory outside buffer bounds");
+        if (ctx.offset + length > buf.length)
+          throw new RangeError(
+            "Attempt to access memory outside buffer bounds",
+          );
         val = buf.slice(ctx.offset, ctx.offset + length);
         ctx.offset += length;
         return val;
@@ -309,21 +329,30 @@ function doUnpack(
       case DataTypes.STRING: {
         const length = view.getUint32(ctx.offset, false);
         ctx.offset += 4;
-        if (ctx.offset + length > buf.length) throw new RangeError("Attempt to access memory outside buffer bounds");
+        if (ctx.offset + length > buf.length)
+          throw new RangeError(
+            "Attempt to access memory outside buffer bounds",
+          );
         // Fast path for ASCII
         const strStart = ctx.offset;
         let isAscii = true;
         for (let i = strStart; i < strStart + length; i++) {
-          if (buf[i] > 127) { isAscii = false; break; }
+          if (buf[i] > 127) {
+            isAscii = false;
+            break;
+          }
         }
         if (isAscii && length < 64) {
-          let str = '';
+          let str = "";
           for (let i = strStart; i < strStart + length; i++) {
             str += String.fromCharCode(buf[i]);
           }
           val = str;
         } else if (isAscii) {
-          val = String.fromCharCode.apply(null, buf.subarray(strStart, strStart + length) as any);
+          val = String.fromCharCode.apply(
+            null,
+            buf.subarray(strStart, strStart + length) as any,
+          );
         } else {
           val = decoder.decode(buf.subarray(strStart, strStart + length));
         }
@@ -333,8 +362,13 @@ function doUnpack(
       case DataTypes.OBJECT: {
         const length = view.getUint32(ctx.offset, false);
         ctx.offset += 4;
-        if (ctx.offset + length > buf.length) throw new RangeError("Attempt to access memory outside buffer bounds");
-        val = JSON.parse(decoder.decode(buf.subarray(ctx.offset, ctx.offset + length)));
+        if (ctx.offset + length > buf.length)
+          throw new RangeError(
+            "Attempt to access memory outside buffer bounds",
+          );
+        val = JSON.parse(
+          decoder.decode(buf.subarray(ctx.offset, ctx.offset + length)),
+        );
         ctx.offset += length;
         return val;
       }
@@ -346,7 +380,7 @@ function doUnpack(
   }
 
   if (schema === null || schema === undefined) {
-    throw Error('Invalid schema!');
+    throw Error("Invalid schema!");
   }
 
   if (Array.isArray(schema)) {
@@ -379,7 +413,7 @@ function skipSchema(
   schema: Schema | Array<Schema>,
   buf: Uint8Array,
   view: DataView,
-  ctx: { offset: number }
+  ctx: { offset: number },
 ): void {
   if (typeof schema === "number") {
     switch (schema) {
@@ -405,7 +439,10 @@ function skipSchema(
       case DataTypes.BINARY:
       case DataTypes.STRING:
       case DataTypes.OBJECT: {
-        if (ctx.offset + 4 > buf.length) throw new RangeError("Attempt to access memory outside buffer bounds");
+        if (ctx.offset + 4 > buf.length)
+          throw new RangeError(
+            "Attempt to access memory outside buffer bounds",
+          );
         const length = view.getUint32(ctx.offset, false);
         ctx.offset += 4 + length;
         break;
@@ -413,7 +450,8 @@ function skipSchema(
       default:
         throw new Error("Invalid schema!");
     }
-    if (ctx.offset > buf.length) throw new RangeError("Attempt to access memory outside buffer bounds");
+    if (ctx.offset > buf.length)
+      throw new RangeError("Attempt to access memory outside buffer bounds");
     return;
   }
 
@@ -437,7 +475,7 @@ function skipSchema(
 export const unpack = <const S extends Schema | ReadonlyArray<Schema>>(
   data: ArrayBufferLike | ArrayBuffer | Uint8Array | string,
   schema: S,
-  opt?: IPackConfigOptions
+  opt?: IPackConfigOptions,
 ): SchemaToType<S> => {
   const { useCheckSum, useEncrypt, secret } = resolveConfig(opt);
 
@@ -462,10 +500,10 @@ export const unpack = <const S extends Schema | ReadonlyArray<Schema>>(
       // and keeps the graceful path for schemas that read nothing).
       let { sum } = st;
       for (let p = st.offset; p < end; p++) {
-        sum += ((buff[p] - keystreamByte(secret, p)) & 0xFF) * (p + 1);
+        sum += ((buff[p] - keystreamByte(secret, p)) & 0xff) * (p + 1);
       }
-      sum &= 0xFFFF;
-      if (((sum >> 8) & 0xFF) !== buff[end] || (sum & 0xFF) !== buff[end + 1]) {
+      sum &= 0xffff;
+      if (((sum >> 8) & 0xff) !== buff[end] || (sum & 0xff) !== buff[end + 1]) {
         throw new Error(`Data mismatch!`);
       }
     }
@@ -489,7 +527,7 @@ export const unpack = <const S extends Schema | ReadonlyArray<Schema>>(
 export const splitPackedParts = (
   data: ArrayBufferLike | ArrayBuffer | Uint8Array | string,
   dataSchema: { [name: string]: Schema | Schema[] },
-  opt?: IPackConfigOptions
+  opt?: IPackConfigOptions,
 ): { [key: string]: Uint8Array } => {
   const { useCheckSum, useEncrypt, secret } = resolveConfig(opt);
 
@@ -535,10 +573,12 @@ export const unpackPart = <const S extends Schema | ReadonlyArray<Schema>>(
  *
  * Falls back to regular unpack if schema is not an object or has fewer than 2 keys.
  */
-export const unpackParallel = async <const S extends Schema | ReadonlyArray<Schema>>(
+export const unpackParallel = async <
+  const S extends Schema | ReadonlyArray<Schema>,
+>(
   data: ArrayBufferLike | ArrayBuffer | Uint8Array | string,
   schema: S,
-  opt?: IPackConfigOptions
+  opt?: IPackConfigOptions,
 ): Promise<SchemaToType<S>> => {
   if (typeof schema !== "object" || Array.isArray(schema)) {
     return unpack(data, schema, opt);

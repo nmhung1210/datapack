@@ -1,4 +1,3 @@
-
 import {
   DataTypes,
   Schema,
@@ -40,91 +39,128 @@ export class PackerContext {
   }
 }
 
-export function doPackCtx(ctx: PackerContext, data: any, schema: Schema | Array<Schema>) {
+export function doPackCtx(
+  ctx: PackerContext,
+  data: any,
+  schema: Schema | Array<Schema>,
+) {
   if (typeof schema === "number") {
     switch (schema) {
       case DataTypes.UINT8:
-        if (typeof data !== 'number') throw new Error('Invalid data type for UINT8. Expected number.');
-        if (!Number.isInteger(data) || data < 0 || data > 0xFF) throw new RangeError('Value out of range for UINT8 (0..255).');
+        if (typeof data !== "number")
+          throw new Error("Invalid data type for UINT8. Expected number.");
+        if (!Number.isInteger(data) || data < 0 || data > 0xff)
+          throw new RangeError("Value out of range for UINT8 (0..255).");
         if (ctx.offset + 1 > ctx.buf.length) ctx.grow(1);
         ctx.view.setUint8(ctx.offset, data);
         ctx.offset += 1;
         return;
       case DataTypes.BOOL:
-        if (typeof data !== 'boolean') throw new Error('Invalid data type for BOOL. Expected boolean.');
+        if (typeof data !== "boolean")
+          throw new Error("Invalid data type for BOOL. Expected boolean.");
         if (ctx.offset + 1 > ctx.buf.length) ctx.grow(1);
         ctx.view.setUint8(ctx.offset, data ? 1 : 0);
         ctx.offset += 1;
         return;
       case DataTypes.INT8:
-        if (typeof data !== 'number') throw new Error('Invalid data type for INT8. Expected number.');
-        if (!Number.isInteger(data) || data < -0x80 || data > 0x7F) throw new RangeError('Value out of range for INT8 (-128..127).');
+        if (typeof data !== "number")
+          throw new Error("Invalid data type for INT8. Expected number.");
+        if (!Number.isInteger(data) || data < -0x80 || data > 0x7f)
+          throw new RangeError("Value out of range for INT8 (-128..127).");
         if (ctx.offset + 1 > ctx.buf.length) ctx.grow(1);
         ctx.view.setInt8(ctx.offset, data);
         ctx.offset += 1;
         return;
       case DataTypes.UINT16:
-        if (typeof data !== 'number') throw new Error('Invalid data type for UINT16. Expected number.');
-        if (!Number.isInteger(data) || data < 0 || data > 0xFFFF) throw new RangeError('Value out of range for UINT16 (0..65535).');
+        if (typeof data !== "number")
+          throw new Error("Invalid data type for UINT16. Expected number.");
+        if (!Number.isInteger(data) || data < 0 || data > 0xffff)
+          throw new RangeError("Value out of range for UINT16 (0..65535).");
         if (ctx.offset + 2 > ctx.buf.length) ctx.grow(2);
         ctx.view.setUint16(ctx.offset, data, false);
         ctx.offset += 2;
         return;
       case DataTypes.INT16:
-        if (typeof data !== 'number') throw new Error('Invalid data type for INT16. Expected number.');
-        if (!Number.isInteger(data) || data < -0x8000 || data > 0x7FFF) throw new RangeError('Value out of range for INT16 (-32768..32767).');
+        if (typeof data !== "number")
+          throw new Error("Invalid data type for INT16. Expected number.");
+        if (!Number.isInteger(data) || data < -0x8000 || data > 0x7fff)
+          throw new RangeError("Value out of range for INT16 (-32768..32767).");
         if (ctx.offset + 2 > ctx.buf.length) ctx.grow(2);
         ctx.view.setInt16(ctx.offset, data, false);
         ctx.offset += 2;
         return;
       case DataTypes.UINT32:
-        if (typeof data !== 'number') throw new Error('Invalid data type for UINT32. Expected number.');
-        if (!Number.isInteger(data) || data < 0 || data > 0xFFFFFFFF) throw new RangeError('Value out of range for UINT32 (0..4294967295).');
+        if (typeof data !== "number")
+          throw new Error("Invalid data type for UINT32. Expected number.");
+        if (!Number.isInteger(data) || data < 0 || data > 0xffffffff)
+          throw new RangeError(
+            "Value out of range for UINT32 (0..4294967295).",
+          );
         if (ctx.offset + 4 > ctx.buf.length) ctx.grow(4);
         ctx.view.setUint32(ctx.offset, data, false);
         ctx.offset += 4;
         return;
       case DataTypes.INT32:
-        if (typeof data !== 'number') throw new Error('Invalid data type for INT32. Expected number.');
-        if (!Number.isInteger(data) || data < -0x80000000 || data > 0x7FFFFFFF) throw new RangeError('Value out of range for INT32 (-2147483648..2147483647).');
+        if (typeof data !== "number")
+          throw new Error("Invalid data type for INT32. Expected number.");
+        if (!Number.isInteger(data) || data < -0x80000000 || data > 0x7fffffff)
+          throw new RangeError(
+            "Value out of range for INT32 (-2147483648..2147483647).",
+          );
         if (ctx.offset + 4 > ctx.buf.length) ctx.grow(4);
         ctx.view.setInt32(ctx.offset, data, false);
         ctx.offset += 4;
         return;
       case DataTypes.UINT64: {
-        if (typeof data !== 'number' && typeof data !== 'bigint') throw new Error('Invalid data type for UINT64. Expected number or bigint.');
-        if (typeof data === 'number' && !Number.isInteger(data)) throw new RangeError('Value out of range for UINT64 (non-integer).');
+        if (typeof data !== "number" && typeof data !== "bigint")
+          throw new Error(
+            "Invalid data type for UINT64. Expected number or bigint.",
+          );
+        if (typeof data === "number" && !Number.isInteger(data))
+          throw new RangeError("Value out of range for UINT64 (non-integer).");
         const v = BigInt(data);
-        if (v < BigInt(0) || v > BigInt("18446744073709551615")) throw new RangeError('Value out of range for UINT64 (0..2^64-1).');
+        if (v < BigInt(0) || v > BigInt("18446744073709551615"))
+          throw new RangeError("Value out of range for UINT64 (0..2^64-1).");
         if (ctx.offset + 8 > ctx.buf.length) ctx.grow(8);
         ctx.view.setBigUint64(ctx.offset, v, false);
         ctx.offset += 8;
         return;
       }
       case DataTypes.INT64: {
-        if (typeof data !== 'number' && typeof data !== 'bigint') throw new Error('Invalid data type for INT64. Expected number or bigint.');
-        if (typeof data === 'number' && !Number.isInteger(data)) throw new RangeError('Value out of range for INT64 (non-integer).');
+        if (typeof data !== "number" && typeof data !== "bigint")
+          throw new Error(
+            "Invalid data type for INT64. Expected number or bigint.",
+          );
+        if (typeof data === "number" && !Number.isInteger(data))
+          throw new RangeError("Value out of range for INT64 (non-integer).");
         const v = BigInt(data);
-        if (v < BigInt("-9223372036854775808") || v > BigInt("9223372036854775807")) throw new RangeError('Value out of range for INT64 (-2^63..2^63-1).');
+        if (
+          v < BigInt("-9223372036854775808") ||
+          v > BigInt("9223372036854775807")
+        )
+          throw new RangeError("Value out of range for INT64 (-2^63..2^63-1).");
         if (ctx.offset + 8 > ctx.buf.length) ctx.grow(8);
         ctx.view.setBigInt64(ctx.offset, v, false);
         ctx.offset += 8;
         return;
       }
       case DataTypes.FLOAT:
-        if (typeof data !== 'number') throw new Error('Invalid data type for FLOAT. Expected number.');
+        if (typeof data !== "number")
+          throw new Error("Invalid data type for FLOAT. Expected number.");
         if (ctx.offset + 4 > ctx.buf.length) ctx.grow(4);
         ctx.view.setFloat32(ctx.offset, data, false);
         ctx.offset += 4;
         return;
       case DataTypes.FLOAT64:
-        if (typeof data !== 'number') throw new Error('Invalid data type for FLOAT64. Expected number.');
+        if (typeof data !== "number")
+          throw new Error("Invalid data type for FLOAT64. Expected number.");
         if (ctx.offset + 8 > ctx.buf.length) ctx.grow(8);
         ctx.view.setFloat64(ctx.offset, data, false);
         ctx.offset += 8;
         return;
       case DataTypes.BINARY: {
-        if (!(data instanceof Uint8Array)) throw new Error('Invalid data type for BINARY. Expected Uint8Array.');
+        if (!(data instanceof Uint8Array))
+          throw new Error("Invalid data type for BINARY. Expected Uint8Array.");
         const len = data.length;
         if (ctx.offset + 4 + len > ctx.buf.length) ctx.grow(4 + len);
         ctx.view.setUint32(ctx.offset, len, false);
@@ -134,7 +170,8 @@ export function doPackCtx(ctx: PackerContext, data: any, schema: Schema | Array<
         return;
       }
       case DataTypes.STRING: {
-        if (typeof data !== 'string') throw new Error('Invalid data type for STRING. Expected string.');
+        if (typeof data !== "string")
+          throw new Error("Invalid data type for STRING. Expected string.");
         const strLen = data.length;
         if (ctx.offset + 4 + strLen > ctx.buf.length) ctx.grow(4 + strLen * 3);
         let len = strLen;
@@ -142,12 +179,19 @@ export function doPackCtx(ctx: PackerContext, data: any, schema: Schema | Array<
         const start = ctx.offset + 4;
         for (let i = 0; i < strLen; i++) {
           const c = data.charCodeAt(i);
-          if (c > 127) { isAscii = false; break; }
+          if (c > 127) {
+            isAscii = false;
+            break;
+          }
           ctx.buf[start + i] = c;
         }
         if (!isAscii) {
-          if (ctx.offset + 4 + strLen * 3 > ctx.buf.length) ctx.grow(4 + strLen * 3);
-          const result = encoder.encodeInto(data, ctx.buf.subarray(ctx.offset + 4));
+          if (ctx.offset + 4 + strLen * 3 > ctx.buf.length)
+            ctx.grow(4 + strLen * 3);
+          const result = encoder.encodeInto(
+            data,
+            ctx.buf.subarray(ctx.offset + 4),
+          );
           len = result.written!;
         }
         ctx.view.setUint32(ctx.offset, len, false);
@@ -158,7 +202,10 @@ export function doPackCtx(ctx: PackerContext, data: any, schema: Schema | Array<
         const json = JSON.stringify(data);
         const maxLen = json.length * 3;
         if (ctx.offset + 4 + maxLen > ctx.buf.length) ctx.grow(4 + maxLen);
-        const result = encoder.encodeInto(json, ctx.buf.subarray(ctx.offset + 4));
+        const result = encoder.encodeInto(
+          json,
+          ctx.buf.subarray(ctx.offset + 4),
+        );
         const len = result.written!;
         ctx.view.setUint32(ctx.offset, len, false);
         ctx.offset += 4 + len;
@@ -188,7 +235,7 @@ const defaultCtx = new PackerContext();
 export const pack = (
   data: any,
   dataSchema: Schema | Array<Schema>,
-  opt?: IPackConfigOptions
+  opt?: IPackConfigOptions,
 ) => {
   const { useCheckSum, useEncrypt, secret } = resolveConfig(opt);
 
@@ -218,16 +265,16 @@ export const pack = (
       const end = i + 8192 < dataLen ? i + 8192 : dataLen;
       for (; i < end; i++) {
         const b = src[i];
-        sum += b * ((i + 1) & 0xFFFF);
-        finalBuff[i] = (b + keystreamByte(secret, i)) & 0xFF;
+        sum += b * ((i + 1) & 0xffff);
+        finalBuff[i] = (b + keystreamByte(secret, i)) & 0xff;
       }
       sum %= 65536;
     }
-    finalBuff[dataLen] = (sum >> 8) & 0xFF;
-    finalBuff[dataLen + 1] = sum & 0xFF;
+    finalBuff[dataLen] = (sum >> 8) & 0xff;
+    finalBuff[dataLen + 1] = sum & 0xff;
   } else if (useEncrypt) {
     for (let i = 0; i < dataLen; i++) {
-      finalBuff[i] = (src[i] + keystreamByte(secret, i)) & 0xFF;
+      finalBuff[i] = (src[i] + keystreamByte(secret, i)) & 0xff;
     }
   } else if (useCheckSum) {
     // Fuse the copy into the checksum pass (no subarray, no DataView).
@@ -237,13 +284,13 @@ export const pack = (
       const end = i + 8192 < dataLen ? i + 8192 : dataLen;
       for (; i < end; i++) {
         const b = src[i];
-        sum += b * ((i + 1) & 0xFFFF);
+        sum += b * ((i + 1) & 0xffff);
         finalBuff[i] = b;
       }
       sum %= 65536;
     }
-    finalBuff[dataLen] = (sum >> 8) & 0xFF;
-    finalBuff[dataLen + 1] = sum & 0xFF;
+    finalBuff[dataLen] = (sum >> 8) & 0xff;
+    finalBuff[dataLen + 1] = sum & 0xff;
   }
 
   return finalBuff;
@@ -261,7 +308,7 @@ export const pack = (
 export const packParallel = async (
   data: any,
   dataSchema: Schema | Array<Schema>,
-  opt?: IPackConfigOptions
+  opt?: IPackConfigOptions,
 ): Promise<Uint8Array> => {
   // Only parallelize object schemas with multiple keys
   if (typeof dataSchema !== "object" || Array.isArray(dataSchema)) {
@@ -304,7 +351,7 @@ export const packParts = (
 export const combinePackedParts = (
   parts: { [key: string]: Uint8Array },
   schemaKeys: string[],
-  opt?: IPackConfigOptions
+  opt?: IPackConfigOptions,
 ): Uint8Array => {
   const { useCheckSum, useEncrypt, secret } = resolveConfig(opt);
 
@@ -326,12 +373,12 @@ export const combinePackedParts = (
   const checksum = useCheckSum ? computeChecksum(finalBuff, totalLen) : 0;
   if (useEncrypt) {
     for (let i = 0; i < totalLen; i++) {
-      finalBuff[i] = (finalBuff[i] + keystreamByte(secret, i)) & 0xFF;
+      finalBuff[i] = (finalBuff[i] + keystreamByte(secret, i)) & 0xff;
     }
   }
   if (useCheckSum) {
-    finalBuff[totalLen] = (checksum >> 8) & 0xFF;
-    finalBuff[totalLen + 1] = checksum & 0xFF;
+    finalBuff[totalLen] = (checksum >> 8) & 0xff;
+    finalBuff[totalLen + 1] = checksum & 0xff;
   }
 
   return finalBuff;
