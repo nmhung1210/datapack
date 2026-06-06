@@ -11,10 +11,11 @@ import {
 
 const decoder = new TextDecoder();
 
-// Below this payload size the Fletcher-16 accumulators cannot overflow a
-// float64 safe integer (the byte sum is at most 255·n, well under 2^53 for any
-// realistic payload), so the mod-65536 reduction can be deferred to the very
-// end. Larger encrypted payloads fall back to the two-pass decodeBuffer path.
+// Below this payload size the position-weighted checksum accumulator cannot
+// lose float64 integer precision even with the mod-65536 reduction deferred to
+// the very end: the worst case is 255·Σ(i+1) ≈ 255·n²/2, which at n = 5e6 is
+// ~3.19e15, about 0.35× Number.MAX_SAFE_INTEGER (~9.01e15). Larger encrypted
+// payloads fall back to the block-reducing two-pass decodeBuffer path.
 const INLINE_DECRYPT_LIMIT = 5_000_000;
 
 // Shared scratch for assembling one decrypted fixed-width value at a time.
@@ -202,13 +203,18 @@ function decodeBuffer(
     // byte-sum checksum in a single pass.
     const dataEndOffset = buff.length - 2;
     const dataBuff = new Uint8Array(dataEndOffset);
+    // Block-reduce the weighted sum mod 65536 so it stays exact at any size.
     let sum = 0;
-    for (let i = 0; i < dataEndOffset; i++) {
-      const d = (buff[i] - i - secret) & 0xFF;
-      dataBuff[i] = d;
-      sum += d * (i + 1);
+    let i = 0;
+    while (i < dataEndOffset) {
+      const end = i + 8192 < dataEndOffset ? i + 8192 : dataEndOffset;
+      for (; i < end; i++) {
+        const d = (buff[i] - i - secret) & 0xFF;
+        dataBuff[i] = d;
+        sum += d * ((i + 1) & 0xFFFF);
+      }
+      sum %= 65536;
     }
-    sum &= 0xFFFF;
     if (((sum >> 8) & 0xFF) !== buff[dataEndOffset] || (sum & 0xFF) !== buff[dataEndOffset + 1]) {
       throw new Error(`Data mismatch!`);
     }

@@ -90,18 +90,26 @@ export function doPackCtx(ctx: PackerContext, data: any, schema: Schema | Array<
         ctx.view.setInt32(ctx.offset, data, false);
         ctx.offset += 4;
         return;
-      case DataTypes.UINT64:
+      case DataTypes.UINT64: {
         if (typeof data !== 'number' && typeof data !== 'bigint') throw new Error('Invalid data type for UINT64. Expected number or bigint.');
+        if (typeof data === 'number' && !Number.isInteger(data)) throw new RangeError('Value out of range for UINT64 (non-integer).');
+        const v = BigInt(data);
+        if (v < BigInt(0) || v > BigInt("18446744073709551615")) throw new RangeError('Value out of range for UINT64 (0..2^64-1).');
         if (ctx.offset + 8 > ctx.buf.length) ctx.grow(8);
-        ctx.view.setBigUint64(ctx.offset, BigInt(data), false);
+        ctx.view.setBigUint64(ctx.offset, v, false);
         ctx.offset += 8;
         return;
-      case DataTypes.INT64:
+      }
+      case DataTypes.INT64: {
         if (typeof data !== 'number' && typeof data !== 'bigint') throw new Error('Invalid data type for INT64. Expected number or bigint.');
+        if (typeof data === 'number' && !Number.isInteger(data)) throw new RangeError('Value out of range for INT64 (non-integer).');
+        const v = BigInt(data);
+        if (v < BigInt("-9223372036854775808") || v > BigInt("9223372036854775807")) throw new RangeError('Value out of range for INT64 (-2^63..2^63-1).');
         if (ctx.offset + 8 > ctx.buf.length) ctx.grow(8);
-        ctx.view.setBigInt64(ctx.offset, BigInt(data), false);
+        ctx.view.setBigInt64(ctx.offset, v, false);
         ctx.offset += 8;
         return;
+      }
       case DataTypes.FLOAT:
         if (typeof data !== 'number') throw new Error('Invalid data type for FLOAT. Expected number.');
         if (ctx.offset + 4 > ctx.buf.length) ctx.grow(4);
@@ -201,11 +209,18 @@ export const pack = (
   // position-dependent byte shift by `i + secret`. When both are on we fold the
   // sum into the same pass.
   if (useEncrypt && useCheckSum) {
+    // Block-reduce the weighted sum mod 65536 so it never loses precision
+    // (see computeChecksum); the weight is reduced the same way.
     let sum = 0;
-    for (let i = 0; i < dataLen; i++) {
-      const b = src[i];
-      sum += b * (i + 1);
-      finalBuff[i] = (b + i + secret) & 0xFF;
+    let i = 0;
+    while (i < dataLen) {
+      const end = i + 8192 < dataLen ? i + 8192 : dataLen;
+      for (; i < end; i++) {
+        const b = src[i];
+        sum += b * ((i + 1) & 0xFFFF);
+        finalBuff[i] = (b + i + secret) & 0xFF;
+      }
+      sum %= 65536;
     }
     finalBuff[dataLen] = (sum >> 8) & 0xFF;
     finalBuff[dataLen + 1] = sum & 0xFF;
@@ -216,10 +231,15 @@ export const pack = (
   } else if (useCheckSum) {
     // Fuse the copy into the checksum pass (no subarray, no DataView).
     let sum = 0;
-    for (let i = 0; i < dataLen; i++) {
-      const b = src[i];
-      sum += b * (i + 1);
-      finalBuff[i] = b;
+    let i = 0;
+    while (i < dataLen) {
+      const end = i + 8192 < dataLen ? i + 8192 : dataLen;
+      for (; i < end; i++) {
+        const b = src[i];
+        sum += b * ((i + 1) & 0xFFFF);
+        finalBuff[i] = b;
+      }
+      sum %= 65536;
     }
     finalBuff[dataLen] = (sum >> 8) & 0xFF;
     finalBuff[dataLen + 1] = sum & 0xFF;

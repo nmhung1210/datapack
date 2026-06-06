@@ -99,13 +99,23 @@ export function defineSchema<const T extends Schema>(schema: T): T {
  * makes the sum sensitive to byte transpositions and shifts (a plain byte-sum
  * is permutation-invariant and would miss them). Stored/read as a big-endian
  * unsigned 16-bit int.
+ *
+ * The weight is reduced mod 65536 and the accumulator is reduced once per block,
+ * so the running sum can never lose float64 integer precision (each term stays
+ * below 256*65536) regardless of payload size. Because every term is congruent
+ * mod 65536, the result is identical to the unreduced sum mod 65536.
  */
 export function computeChecksum(bytes: Uint8Array, len: number): number {
   let sum = 0;
-  for (let i = 0; i < len; i++) {
-    sum += bytes[i] * (i + 1);
+  let i = 0;
+  while (i < len) {
+    const end = i + 8192 < len ? i + 8192 : len;
+    for (; i < end; i++) {
+      sum += bytes[i] * ((i + 1) & 0xFFFF);
+    }
+    sum %= 65536;
   }
-  return sum & 0xFFFF;
+  return sum;
 }
 
 /** Resolve per-call options against the defaults, once per pack/unpack entry point. */
@@ -114,10 +124,16 @@ export function resolveConfig(opt?: IPackConfigOptions): {
   useEncrypt: boolean;
   secret: number;
 } {
+  const secret = opt?.secret ?? defaultConfig.secret;
+  // A fractional secret makes the byte shift asymmetric between pack and unpack
+  // (it would silently corrupt data), so require an integer key.
+  if (!Number.isInteger(secret)) {
+    throw new RangeError('secret must be an integer.');
+  }
   return {
     useCheckSum: opt?.useCheckSum ?? defaultConfig.useCheckSum,
     useEncrypt: opt?.useEncrypt ?? defaultConfig.useEncrypt,
-    secret: opt?.secret ?? defaultConfig.secret,
+    secret,
   };
 }
 
