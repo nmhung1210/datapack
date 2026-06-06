@@ -183,7 +183,7 @@ function doUnpackDec(
     return val;
   }
 
-  return undefined;
+  throw new Error("Invalid schema!");
 }
 
 /**
@@ -361,7 +361,7 @@ function doUnpack(
     return val;
   }
 
-  return undefined;
+  throw new Error("Invalid schema!");
 }
 
 /**

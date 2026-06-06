@@ -223,8 +223,6 @@ export const pack = (
     }
     finalBuff[dataLen] = (sum >> 8) & 0xFF;
     finalBuff[dataLen + 1] = sum & 0xFF;
-  } else {
-    finalBuff.set(src.subarray(0, dataLen));
   }
 
   return finalBuff;
