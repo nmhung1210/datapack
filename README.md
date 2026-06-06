@@ -7,6 +7,17 @@
 
 A high-performance JavaScript library for packing and unpacking binary data with a schema-based approach. Optimized for both Node.js and browser environments, datapack provides a simple and efficient way to serialize and deserialize complex data structures.
 
+## Features
+
+- **Compact binary format** — 3–4.5× smaller than JSON, and faster to pack/unpack (see [Benchmark](#benchmark)).
+- **Schema-driven** — describe your data once with plain objects, arrays, and `DataTypes` constants.
+- **Full TypeScript inference** — `unpack` returns a type derived from your schema, no manual annotations needed.
+- **14 data types** — fixed-width integers (8/16/32/64-bit, signed and unsigned), 32- and 64-bit floats, booleans, UTF-8 strings, raw binary, and arbitrary JSON objects.
+- **Optional integrity & obfuscation** — a position-weighted checksum to detect corruption and a byte-level shift cipher, both opt-out.
+- **Range validation** — out-of-range or non-integer values are rejected at pack time with a `RangeError` instead of silently truncating.
+- **Parallel-friendly** — pack/unpack object fields independently for use with Web Workers or `worker_threads`.
+- **Zero dependencies** — built on native `Uint8Array`, `DataView`, `TextEncoder`, and `TextDecoder`.
+
 ## Installation
 
 ```
@@ -104,7 +115,21 @@ console.log(unpackedProfile.nickName.toUpperCase()); // Works!
 // console.log(unpackedProfile.invalidProperty); // TypeScript error!
 ```
 
+### `defineSchema` helper
 
+When you declare a schema as a standalone constant, use `defineSchema` to preserve the literal types so inference still works. It returns the schema unchanged at runtime — it exists purely to lock in the `const` types.
+
+```typescript
+import { defineSchema, pack, unpack, UINT32, STRING } from "datapack";
+
+const userSchema = defineSchema({
+  id: UINT32,
+  name: STRING,
+});
+
+const packed = pack({ id: 1, name: "Alice" }, userSchema);
+const user = unpack(packed, userSchema); // typed as { id: number; name: string }
+```
 
 ### Complex data structures
 ```javascript
@@ -187,6 +212,22 @@ const unpacked = unpack(packed, schema, options);
 console.log(unpacked);
 ```
 
+How the options behave on the wire:
+
+- **`useCheckSum`** appends a 2-byte, big-endian checksum computed as a *position-weighted* byte sum (`Σ byte[i] * (i + 1)`, mod 65536). Unlike a plain byte sum it is sensitive to byte transpositions and shifts, so reordered or moved bytes are detected. A mismatch throws `Data mismatch!` on unpack.
+- **`useEncrypt`** applies a reversible, position-dependent byte shift (`byte + index + secret`, mod 256). It is lightweight obfuscation, not cryptographically secure — use TLS or a real cipher for sensitive data. Pack and unpack must use the same `secret`.
+- When both are enabled, the checksum is computed over the plaintext, then the bytes are encrypted; unpack decrypts first and then validates.
+
+### Range Validation
+
+Integer types are validated when packing. Passing a non-integer or an out-of-range value throws a `RangeError` rather than silently wrapping or truncating:
+
+```javascript
+pack(256, UINT8);  // RangeError: Value out of range for UINT8 (0..255).
+pack(-1, UINT8);   // RangeError
+pack(1.5, INT32);  // RangeError: non-integer
+```
+
 ### Default Configuration
 
 You can set global defaults so you don't need to pass options on every call:
@@ -263,6 +304,7 @@ import {
   BINARY,
   UINT32,
   FLOAT,
+  FLOAT64,
 } from "datapack";
 
 // UINT8
@@ -290,10 +332,15 @@ const packed_INT32 = pack(2000000000, INT32);
 const unpacked_INT32 = unpack(packed_INT32, INT32);
 console.log(unpacked_INT32); // 2000000000
 
-// FLOAT
+// FLOAT (32-bit, single precision)
 const packed_FLOAT = pack(123.456, FLOAT);
 const unpacked_FLOAT = unpack(packed_FLOAT, FLOAT);
 console.log(unpacked_FLOAT); // 123.456 (32-bit precision)
+
+// FLOAT64 (64-bit, double precision)
+const packed_FLOAT64 = pack(123.456789012345, FLOAT64);
+const unpacked_FLOAT64 = unpack(packed_FLOAT64, FLOAT64);
+console.log(unpacked_FLOAT64); // 123.456789012345 (full double precision)
 
 // BOOL
 const packed_BOOL_true = pack(true, BOOL);
@@ -330,32 +377,35 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 
 **Host Specs:**
 
-*   **CPU:** Apple M1 Pro
-*   **RAM:** 16GB
-*   **OS:** macOS
-*   **Node.js:** v22
+*   **CPU:** 10 cores
+*   **OS:** Linux
+*   **Node.js:** v24
 
-**Results (with encryption + checksum enabled):**
+**Results (datapack with no checksum/encryption vs. native JSON — the fairest head-to-head, since JSON provides neither):**
 
-| Scenario | Datapack (pack) | Datapack (unpack) | JSON (stringify) | JSON (parse) |
+| Scenario | Datapack (pack) | JSON (stringify) | Datapack (unpack) | JSON (parse) |
 |---|---|---|---|---|
-| Simple object (number fields) | ~4,310,000 ops/sec | ~3,519,000 ops/sec | ~3,302,000 ops/sec | ~3,484,000 ops/sec |
-| Complex object (10x nested) | ~441,000 ops/sec | ~287,000 ops/sec | ~480,000 ops/sec | ~230,000 ops/sec |
-| Big object (~1MB) | ~202 ops/sec | ~100 ops/sec | ~179 ops/sec | ~97 ops/sec |
+| Simple object (number fields) | ~11,650,000 ops/sec | ~4,519,000 ops/sec | ~6,974,000 ops/sec | ~3,399,000 ops/sec |
+| Complex object (10x nested) | ~470,000 ops/sec | ~448,000 ops/sec | ~332,000 ops/sec | ~173,000 ops/sec |
+| Big object (~1MB) | ~313 ops/sec | ~174 ops/sec | ~130 ops/sec | ~89 ops/sec |
 
 **Key takeaways:**
-- **Simple objects:** pack is 30% faster than JSON.stringify, unpack matches JSON.parse
-- **Complex objects:** unpack is 25% faster than JSON.parse
-- **Large objects (~1MB):** pack is 13% faster than JSON.stringify, unpack matches JSON.parse
-- **Binary size:** 3-4x smaller than JSON for equivalent data
+- **Simple objects:** pack is ~2.6x faster than JSON.stringify, unpack is ~2.1x faster than JSON.parse
+- **Complex objects:** unpack is ~1.9x faster than JSON.parse, pack roughly matches JSON.stringify
+- **Large objects (~1MB):** pack is ~1.8x faster than JSON.stringify, unpack is ~1.5x faster than JSON.parse
+- **Binary size:** 3-4.5x smaller than JSON for equivalent data
+
+**Cost of the optional layers** (relative to bare pack/unpack, measured on the same scenarios):
+- **Checksum** (position-weighted byte sum) adds ~5% on small payloads, scaling to ~20-25% on a 1MB object — one extra O(n) arithmetic pass.
+- **Encryption** (position-dependent byte shift) is nearly free on pack and, on unpack, often *faster* than the plain path thanks to the fused inline-decrypt parser.
 
 ### Packed Size Comparison
 
 | Scenario | Datapack Size | JSON Size | Reduction |
 |---|---|---|---|
-| Simple object (number fields) | 20 bytes | 82 bytes | 76% smaller |
-| Complex object | 530 bytes | 1,731 bytes | 69% smaller |
-| Big object (~1MB) | 1,300,010 bytes | 4,275,021 bytes | 70% smaller |
+| Simple object (number fields) | 18 bytes | 82 bytes | 78% smaller |
+| Complex object | 528 bytes | 1,731 bytes | 70% smaller |
+| Big object (~1MB) | 1,300,008 bytes | 4,275,021 bytes | 70% smaller |
 
 ## API Reference
 
@@ -366,6 +416,7 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 | `pack(data, schema, options?)` | Pack data into binary format |
 | `unpack(data, schema, options?)` | Unpack binary data back to JS values |
 | `setDefaultConfig(options)` | Set global default options for all pack/unpack calls |
+| `defineSchema(schema)` | Identity helper that preserves literal schema types for inference |
 
 ### Parallel API
 
@@ -382,9 +433,10 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `useCheckSum` | boolean | `true` | Append checksum for data integrity validation |
-| `useEncrypt` | boolean | `true` | Apply byte-level encryption |
-| `secret` | number | `1210` | Encryption key |
+| `useCheckSum` | boolean | `true` | Append a 2-byte position-weighted checksum for integrity validation |
+| `useEncrypt` | boolean | `true` | Apply a position-dependent byte-level shift cipher |
+| `secret` | number | `1210` | Encryption key (must match between pack and unpack) |
+| `chunkSize` | number | `10240` | Initial pack buffer size in bytes; grows automatically as needed |
 
 ### Data Types
 
@@ -398,11 +450,14 @@ console.log(unpacked_BINARY); // Uint8Array [97, 98, 99]
 | `INT32` | 4 bytes | -2,147,483,648 to 2,147,483,647 |
 | `UINT64` | 8 bytes | 0 to 2^64-1 (BigInt) |
 | `INT64` | 8 bytes | -2^63 to 2^63-1 (BigInt) |
-| `FLOAT` | 4 bytes | 32-bit IEEE 754 |
+| `FLOAT` | 4 bytes | 32-bit IEEE 754 (single precision) |
+| `FLOAT64` | 8 bytes | 64-bit IEEE 754 (double precision) |
 | `BOOL` | 1 byte | true/false |
 | `STRING` | 4 + n bytes | UTF-8 encoded string |
 | `BINARY` | 4 + n bytes | Raw Uint8Array |
 | `OBJECT` | 4 + n bytes | JSON-serialized object |
+
+All multi-byte numeric values use **big-endian** byte order. Variable-length types (`STRING`, `BINARY`, `OBJECT`) are prefixed with a 4-byte unsigned length. Array schemas are length-prefixed with a `UINT32` count, and the schema entries repeat (via modulo indexing) to cover every element — so `[UINT8, INT16]` describes a sequence that alternates `UINT8`, `INT16`, `UINT8`, …
 
 ## Compatibility
 
