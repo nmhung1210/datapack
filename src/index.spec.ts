@@ -439,6 +439,78 @@ describe("FLOAT64 (double precision) coverage", () => {
   });
 });
 
+describe("Integer range validation", () => {
+  it("should reject out-of-range and non-integer values per type", () => {
+    expect(() => pack(256, UINT8)).toThrow(RangeError);
+    expect(() => pack(-1, UINT8)).toThrow(RangeError);
+    expect(() => pack(1.5, UINT8)).toThrow(RangeError);
+    expect(() => pack(128, INT8)).toThrow(RangeError);
+    expect(() => pack(-129, INT8)).toThrow(RangeError);
+    expect(() => pack(65536, UINT16)).toThrow(RangeError);
+    expect(() => pack(-1, UINT16)).toThrow(RangeError);
+    expect(() => pack(32768, INT16)).toThrow(RangeError);
+    expect(() => pack(-32769, INT16)).toThrow(RangeError);
+    expect(() => pack(4294967296, UINT32)).toThrow(RangeError);
+    expect(() => pack(-1, UINT32)).toThrow(RangeError);
+    expect(() => pack(2147483648, INT32)).toThrow(RangeError);
+    expect(() => pack(-2147483649, INT32)).toThrow(RangeError);
+    expect(() => pack(1.5, INT32)).toThrow(RangeError);
+  });
+
+  it("should still accept exact boundary values", () => {
+    const opts = { useCheckSum: false, useEncrypt: false };
+    expect(unpack(pack(255, UINT8, opts), UINT8, opts)).toBe(255);
+    expect(unpack(pack(0, UINT8, opts), UINT8, opts)).toBe(0);
+    expect(unpack(pack(-128, INT8, opts), INT8, opts)).toBe(-128);
+    expect(unpack(pack(127, INT8, opts), INT8, opts)).toBe(127);
+    expect(unpack(pack(4294967295, UINT32, opts), UINT32, opts)).toBe(4294967295);
+    expect(unpack(pack(-2147483648, INT32, opts), INT32, opts)).toBe(-2147483648);
+  });
+});
+
+describe("Checksum (position-weighted byte sum)", () => {
+  const schema = { a: UINT8, b: UINT8 };
+  const data = { a: 10, b: 20 };
+  const opts = { useCheckSum: true, useEncrypt: false };
+
+  it("should detect a single-byte change", () => {
+    const packed = pack(data, schema, opts);
+    const corrupted = new Uint8Array(packed);
+    corrupted[0] += 1; // changes the byte sum
+    expect(() => unpack(corrupted, schema, opts)).toThrow("Data mismatch!");
+  });
+
+  it("should detect a byte transposition (position weighting)", () => {
+    const packed = pack(data, schema, opts);
+    const corrupted = new Uint8Array(packed);
+    const tmp = corrupted[0];
+    corrupted[0] = corrupted[1]; // swap the two data bytes — a plain
+    corrupted[1] = tmp;          // byte-sum would not change, but +i does
+    expect(() => unpack(corrupted, schema, opts)).toThrow("Data mismatch!");
+  });
+
+  it("should round-trip cleanly with checksum + encryption", () => {
+    const encOpts = { useCheckSum: true, useEncrypt: true, secret: 42 };
+    const packed = pack(data, schema, encOpts);
+    expect(unpack(packed, schema, encOpts)).toEqual(data);
+  });
+});
+
+describe("Single-byte package (no checksum/encrypt)", () => {
+  it("should unpack a lone 1-byte value", () => {
+    const opts = { useCheckSum: false, useEncrypt: false };
+    const packed = pack(42, UINT8, opts);
+    expect(packed.length).toBe(1);
+    expect(unpack(packed, UINT8, opts)).toBe(42);
+  });
+
+  it("should round-trip BOOL and INT8 as 1-byte packages", () => {
+    const opts = { useCheckSum: false, useEncrypt: false };
+    expect(unpack(pack(true, BOOL, opts), BOOL, opts)).toBe(true);
+    expect(unpack(pack(-1, INT8, opts), INT8, opts)).toBe(-1);
+  });
+});
+
 describe("Parallel pack test", () => {
   const profileSchema = {
     userId: UINT32,
