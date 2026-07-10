@@ -34,3 +34,12 @@ The library is 4 source files in `src/`:
 ### Build outputs
 
 Rollup produces three formats: `dist/index.js` (CJS), `dist/index.mjs` (ESM), `dist/index.umd.js` (UMD, minified). Browser polyfill for Node's Buffer is included via `rollup-plugin-polyfill-node`.
+
+
+## Working Style
+
+- Minimize token usage — be concise, no fluff
+- Solve requests with minimum diff — don't refactor unrelated code
+- Always run `/simplify` after making changes
+- Don't explain changes unless asked
+- Skip extra verification steps (tests, lint, etc.) unless the task requires them
