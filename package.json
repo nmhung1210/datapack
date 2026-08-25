@@ -58,7 +58,7 @@
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^9.1.2",
     "expect": "^30.4.1",
-    "nyc": "^17.1.0",
+    "nyc": "^18.0.0",
     "prettier": "^3.8.3",
     "rollup": "^2.80.0",
     "ts-mocha": "^9.0.2",
