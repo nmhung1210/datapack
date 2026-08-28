@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 - **Build:** `npm run build` (Rollup → CJS, ESM, UMD outputs in `dist/`)
-- **Test:** `npm test` (`tsx --test` with all `src/**/*.spec.ts` files)
+- **Test:** `npm test` (`tsx --test src/index.spec.ts`)
 - **Single test:** `npx tsx --test src/index.spec.ts`
 - **Coverage:** `npm run coverage` (Node test coverage via `--experimental-test-coverage`)
 - **Benchmark:** `npm run benchmark` (`tsx benchmark/benchmark.ts`)

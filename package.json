@@ -24,11 +24,11 @@
   "scripts": {
     "build": "rollup -c",
     "postbuild": "terser dist/index.umd.js --compress --mangle --output dist/index.umd.js",
-    "test": "tsx --test src/**/*.spec.ts",
+    "test": "tsx --test src/index.spec.ts",
     "release:patch": "npm version patch && git push && git push --tags",
     "release:minor": "npm version minor && git push && git push --tags",
     "release:major": "npm version major && git push && git push --tags",
-    "coverage": "node --import tsx --test --experimental-test-coverage src/**/*.spec.ts",
+    "coverage": "node --import tsx --test --experimental-test-coverage src/index.spec.ts",
     "benchmark": "tsx benchmark/benchmark.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
