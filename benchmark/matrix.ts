@@ -12,6 +12,11 @@ import {
   INT32,
   FLOAT,
 } from "../src";
+import type { IPackConfigOptions, Schema } from "../src";
+
+type BenchmarkEvent = { target: unknown };
+type Combo = { label: string; opt: IPackConfigOptions };
+type Scenario = { name: string; data: unknown; schema: Schema };
 
 const simpleSchema = {
   a: UINT8,
@@ -64,14 +69,14 @@ function build(n: number) {
 const complexData = build(10);
 const bigData = build(25000);
 
-const combos = [
+const combos: Combo[] = [
   { label: "none ", opt: { useCheckSum: false, useEncrypt: false } },
   { label: "csum ", opt: { useCheckSum: true, useEncrypt: false } },
   { label: "enc  ", opt: { useCheckSum: false, useEncrypt: true } },
   { label: "both ", opt: { useCheckSum: true, useEncrypt: true } },
 ];
 
-const scenarios = [
+const scenarios: Scenario[] = [
   { name: "simple ", data: simpleData, schema: simpleSchema },
   { name: "complex", data: complexData, schema: stateSchema },
   { name: "big1MB ", data: bigData, schema: stateSchema },
@@ -80,12 +85,12 @@ const scenarios = [
 const suite = new Suite();
 for (const s of scenarios) {
   for (const c of combos) {
-    const packed = pack(s.data, s.schema as any, c.opt);
+    const packed = pack(s.data, s.schema, c.opt);
     suite.add(`pack   ${s.name} [${c.label}]`, () => {
-      pack(s.data, s.schema as any, c.opt);
+      pack(s.data, s.schema, c.opt);
     });
     suite.add(`unpack ${s.name} [${c.label}]`, () => {
-      unpack(packed, s.schema as any, c.opt);
+      unpack(packed, s.schema, c.opt);
     });
   }
 }
@@ -94,16 +99,16 @@ for (const s of scenarios) {
 // checksum/encrypt) as the closest analog to plain JSON.stringify/parse.
 const jsonOpt = { useCheckSum: false, useEncrypt: false };
 for (const s of scenarios) {
-  const packed = pack(s.data, s.schema as any, jsonOpt);
+  const packed = pack(s.data, s.schema, jsonOpt);
   const json = JSON.stringify(s.data);
   suite.add(`pack   ${s.name} [datapack]`, () => {
-    pack(s.data, s.schema as any, jsonOpt);
+    pack(s.data, s.schema, jsonOpt);
   });
   suite.add(`pack   ${s.name} [JSON    ]`, () => {
     JSON.stringify(s.data);
   });
   suite.add(`unpack ${s.name} [datapack]`, () => {
-    unpack(packed, s.schema as any, jsonOpt);
+    unpack(packed, s.schema, jsonOpt);
   });
   suite.add(`unpack ${s.name} [JSON    ]`, () => {
     JSON.parse(json);
@@ -115,7 +120,7 @@ const utf8 = new TextEncoder();
 console.log("\n=== Serialized size (bytes) ===");
 console.log("scenario  datapack      JSON   ratio");
 for (const s of scenarios) {
-  const dpLen = pack(s.data, s.schema as any, jsonOpt).length;
+  const dpLen = pack(s.data, s.schema, jsonOpt).length;
   const jsonLen = utf8.encode(JSON.stringify(s.data)).length;
   const ratio = dpLen / jsonLen;
   console.log(
@@ -125,6 +130,6 @@ for (const s of scenarios) {
 console.log("");
 
 suite
-  .on("cycle", (e: any) => console.log(String(e.target)))
+  .on("cycle", (e: BenchmarkEvent) => console.log(String(e.target)))
   .on("complete", () => console.log("done"))
   .run();

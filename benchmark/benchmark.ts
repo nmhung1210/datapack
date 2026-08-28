@@ -13,6 +13,8 @@ import {
   FLOAT,
 } from "../src";
 
+type BenchmarkEvent = { target: unknown };
+
 // Scenario 1: Simple object with number fields
 const simpleObjectSchema = {
   a: UINT8,
@@ -148,7 +150,7 @@ suite
     JSON.parse(jsonStringBigObject);
   })
 
-  .on("cycle", (event: any) => {
+  .on("cycle", (event: BenchmarkEvent) => {
     console.log(String(event.target));
   })
   .on("complete", () => {

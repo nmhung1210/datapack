@@ -27,6 +27,19 @@ const scratchView = new DataView(scratch.buffer);
 // (which are immediately decoded, so the buffer need not outlive the call).
 let varScratch = new Uint8Array(256);
 
+function asciiBytesToString(
+  bytes: Uint8Array,
+  start: number,
+  length: number,
+): string {
+  let value = "";
+  const end = start + length;
+  for (let i = start; i < end; i += 8192) {
+    value += String.fromCharCode(...bytes.subarray(i, Math.min(i + 8192, end)));
+  }
+  return value;
+}
+
 /**
  * Sequential parser that decrypts each byte inline as it is consumed (a
  * position-dependent shift back by `position + secret`) and folds the plaintext
@@ -103,7 +116,7 @@ function doUnpackDec(
   schema: Schema | ReadonlyArray<Schema>,
   buff: Uint8Array,
   st: DecState,
-): any {
+): unknown {
   if (typeof schema === "number") {
     // Optional schema: read the presence byte, then the base value only if set.
     if (schema & UNDEFINED) {
@@ -169,10 +182,7 @@ function doUnpackDec(
             }
             return str;
           }
-          return String.fromCharCode.apply(
-            null,
-            varScratch.subarray(0, length) as any,
-          );
+          return asciiBytesToString(varScratch, 0, length);
         }
         return decoder.decode(varScratch.subarray(0, length));
       }
@@ -206,9 +216,10 @@ function doUnpackDec(
   }
 
   if (typeof schema === "object") {
-    const val: any = {};
-    for (const key in schema) {
-      val[key] = doUnpackDec((schema as any)[key], buff, st);
+    const val: Record<string, unknown> = {};
+    const objectSchema = schema as Record<string, Schema>;
+    for (const key in objectSchema) {
+      val[key] = doUnpackDec(objectSchema[key], buff, st);
     }
     return val;
   }
@@ -284,7 +295,7 @@ function doUnpack(
   buf: Uint8Array,
   view: DataView,
   ctx: { offset: number },
-): any {
+): unknown {
   if (typeof schema === "number") {
     // Optional schema: read the presence byte, then the base value only if set.
     if (schema & UNDEFINED) {
@@ -293,9 +304,11 @@ function doUnpack(
       }
       const present = view.getUint8(ctx.offset) !== 0;
       ctx.offset += 1;
-      return present ? doUnpack(schema & ~UNDEFINED, buf, view, ctx) : undefined;
+      return present
+        ? doUnpack(schema & ~UNDEFINED, buf, view, ctx)
+        : undefined;
     }
-    let val: any;
+    let val: unknown;
     switch (schema) {
       case DataTypes.UINT8:
         val = view.getUint8(ctx.offset);
@@ -377,10 +390,7 @@ function doUnpack(
           }
           val = str;
         } else if (isAscii) {
-          val = String.fromCharCode.apply(
-            null,
-            buf.subarray(strStart, strStart + length) as any,
-          );
+          val = asciiBytesToString(buf, strStart, length);
         } else {
           val = decoder.decode(buf.subarray(strStart, strStart + length));
         }
@@ -424,9 +434,10 @@ function doUnpack(
   }
 
   if (typeof schema === "object") {
-    const val: any = {};
-    for (const key in schema) {
-      val[key] = doUnpack((schema as any)[key], buf, view, ctx);
+    const val: Record<string, unknown> = {};
+    const objectSchema = schema as Record<string, Schema>;
+    for (const key in objectSchema) {
+      val[key] = doUnpack(objectSchema[key], buf, view, ctx);
     }
     return val;
   }
@@ -439,7 +450,7 @@ function doUnpack(
  * Advances ctx.offset to the end of the field's data.
  */
 function skipSchema(
-  schema: Schema | Array<Schema>,
+  schema: Schema | ReadonlyArray<Schema>,
   buf: Uint8Array,
   view: DataView,
   ctx: { offset: number },
@@ -509,8 +520,9 @@ function skipSchema(
   }
 
   if (typeof schema === "object" && schema !== null) {
-    for (const key in schema) {
-      skipSchema((schema as any)[key], buf, view, ctx);
+    const objectSchema = schema as Record<string, Schema>;
+    for (const key in objectSchema) {
+      skipSchema(objectSchema[key], buf, view, ctx);
     }
   }
 }
@@ -569,7 +581,7 @@ export const unpack = <const S extends Schema | ReadonlyArray<Schema>>(
  */
 export const splitPackedParts = (
   data: ArrayBufferLike | ArrayBuffer | Uint8Array | string,
-  dataSchema: { [name: string]: Schema | Schema[] },
+  dataSchema: Record<string, Schema>,
   opt?: IPackConfigOptions,
 ): { [key: string]: Uint8Array } => {
   const { useCheckSum, useEncrypt, secret } = resolveConfig(opt);
@@ -633,12 +645,13 @@ export const unpackParallel = async <
   }
 
   // Split into parts (handles decryption/checksum)
-  const parts = splitPackedParts(data, schema as any, opt);
+  const objectSchema = schema as Record<string, Schema>;
+  const parts = splitPackedParts(data, objectSchema, opt);
 
   // Unpack each part independently
-  const result: any = {};
+  const result: Record<string, unknown> = {};
   for (const key of keys) {
-    result[key] = unpackPart(parts[key], (schema as any)[key]);
+    result[key] = unpackPart(parts[key], objectSchema[key]);
   }
 
   return result as SchemaToType<S>;
