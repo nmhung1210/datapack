@@ -8,7 +8,7 @@ Thank you for your interest in contributing to datapack!
 2. Create a feature branch (`git checkout -b feature/my-feature`)
 3. Make your changes
 4. Run tests: `npm test`
-5. Lint and format: `npm run lint` and `npm run format`
+5. Run quality checks: `npm run lint` and `npm run format:check`
 6. Commit your changes
 7. Push to your branch and open a Pull Request
 
@@ -18,7 +18,11 @@ Thank you for your interest in contributing to datapack!
 npm install
 npm run build
 npm test
+npm run lint
+npm run format:check
 ```
+
+Use `npm run coverage` when changing packing, unpacking, schema inference, or checksum/encryption behavior.
 
 ## Reporting Bugs
 
@@ -37,7 +41,7 @@ Open an issue at https://github.com/nmhung1210/datapack/issues with:
   - `npm run lint` — report lint problems (`npm run lint:fix` to auto-fix)
   - `npm run format` — format all files with Prettier (`npm run format:check` to verify without writing)
 
-  Configuration lives in `eslint.config.js` and `.prettierrc.json`.
+Configuration lives in `eslint.config.js`.
 
 ## License
 

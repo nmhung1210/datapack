@@ -36,6 +36,7 @@ import {
   _STRING,
   _INT64,
 } from "./index";
+import { afterEach, describe, it } from "node:test";
 import expect from "expect";
 
 const encoder = new TextEncoder();
@@ -595,29 +596,36 @@ describe("Large-payload checksum exactness", () => {
   // Exceeds the point where an unreduced weighted-sum accumulator would lose
   // float64 precision (~8.4M bytes), verifying the block-reduced loops stay
   // exact and that corruption is still detected at this size.
-  it("should round-trip and detect corruption on a ~10MB payload", function () {
-    this.timeout(30000);
-    const n = 10_000_000;
-    const data = new Uint8Array(n);
-    for (let i = 0; i < n; i++) {
-      data[i] = (i * 31 + 7) & 0xff;
-    }
+  it(
+    "should round-trip and detect corruption on a ~10MB payload",
+    { timeout: 30000 },
+    () => {
+      const n = 10_000_000;
+      const data = new Uint8Array(n);
+      for (let i = 0; i < n; i++) {
+        data[i] = (i * 31 + 7) & 0xff;
+      }
 
-    const csumOpts = { useCheckSum: true, useEncrypt: false };
-    const packedC = pack(data, BINARY, csumOpts);
-    expect(unpack(packedC, BINARY, csumOpts)).toEqual(data);
-    const corruptC = new Uint8Array(packedC);
-    corruptC[1000] ^= 0xff;
-    expect(() => unpack(corruptC, BINARY, csumOpts)).toThrow("Data mismatch!");
+      const csumOpts = { useCheckSum: true, useEncrypt: false };
+      const packedC = pack(data, BINARY, csumOpts);
+      expect(unpack(packedC, BINARY, csumOpts)).toEqual(data);
+      const corruptC = new Uint8Array(packedC);
+      corruptC[1000] ^= 0xff;
+      expect(() => unpack(corruptC, BINARY, csumOpts)).toThrow(
+        "Data mismatch!",
+      );
 
-    // Encrypted path >5M routes through the block-reducing decodeBuffer.
-    const bothOpts = { useCheckSum: true, useEncrypt: true, secret: 17 };
-    const packedB = pack(data, BINARY, bothOpts);
-    expect(unpack(packedB, BINARY, bothOpts)).toEqual(data);
-    const corruptB = new Uint8Array(packedB);
-    corruptB[5_000_000] ^= 0xff;
-    expect(() => unpack(corruptB, BINARY, bothOpts)).toThrow("Data mismatch!");
-  });
+      // Encrypted path >5M routes through the block-reducing decodeBuffer.
+      const bothOpts = { useCheckSum: true, useEncrypt: true, secret: 17 };
+      const packedB = pack(data, BINARY, bothOpts);
+      expect(unpack(packedB, BINARY, bothOpts)).toEqual(data);
+      const corruptB = new Uint8Array(packedB);
+      corruptB[5_000_000] ^= 0xff;
+      expect(() => unpack(corruptB, BINARY, bothOpts)).toThrow(
+        "Data mismatch!",
+      );
+    },
+  );
 });
 
 describe("Checksum (position-weighted byte sum)", () => {
@@ -1445,11 +1453,7 @@ describe("optional datatype (UNDEFINED)", () => {
     // Pack nothing, then ask for an optional field on an empty buffer.
     const packed = pack({ a: 1 }, { a: UINT8 }, opts);
     expect(() =>
-      splitPackedParts(
-        packed,
-        { a: UINT8, b: UINT8 | UNDEFINED } as any,
-        opts,
-      ),
+      splitPackedParts(packed, { a: UINT8, b: UINT8 | UNDEFINED } as any, opts),
     ).toThrow("Attempt to access memory outside buffer bounds");
   });
 

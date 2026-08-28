@@ -42,8 +42,8 @@ export class PackerContext {
 
 export function doPackCtx(
   ctx: PackerContext,
-  data: any,
-  schema: Schema | Array<Schema>,
+  data: unknown,
+  schema: Schema | ReadonlyArray<Schema>,
 ) {
   if (typeof schema === "number") {
     // An optional schema (base type OR'd with the UNDEFINED bit) writes a
@@ -284,6 +284,9 @@ export function doPackCtx(
       }
     }
   } else if (Array.isArray(schema)) {
+    if (!Array.isArray(data)) {
+      throw new Error("Invalid data type for array schema. Expected array.");
+    }
     const arrLen = data.length;
     const schemaLen = schema.length;
     if (ctx.offset + 4 > ctx.buf.length) {
@@ -295,8 +298,13 @@ export function doPackCtx(
       doPackCtx(ctx, data[i], schema[i % schemaLen]);
     }
   } else {
-    for (const key in schema) {
-      doPackCtx(ctx, data[key], (schema as any)[key]);
+    if (data === null || typeof data !== "object") {
+      throw new Error("Invalid data type for object schema. Expected object.");
+    }
+    const objectData = data as Record<string, unknown>;
+    const objectSchema = schema as Record<string, Schema>;
+    for (const key in objectSchema) {
+      doPackCtx(ctx, objectData[key], objectSchema[key]);
     }
   }
 }
@@ -306,8 +314,8 @@ export function doPackCtx(
 const defaultCtx = new PackerContext();
 
 export const pack = (
-  data: any,
-  dataSchema: Schema | Array<Schema>,
+  data: unknown,
+  dataSchema: Schema | ReadonlyArray<Schema>,
   opt?: IPackConfigOptions,
 ) => {
   const { useCheckSum, useEncrypt, secret } = resolveConfig(opt);
@@ -379,8 +387,8 @@ export const pack = (
  * Falls back to sequential pack if schema is not an object or has fewer than 2 keys.
  */
 export const packParallel = async (
-  data: any,
-  dataSchema: Schema | Array<Schema>,
+  data: unknown,
+  dataSchema: Schema | ReadonlyArray<Schema>,
   opt?: IPackConfigOptions,
 ): Promise<Uint8Array> => {
   // Only parallelize object schemas with multiple keys
@@ -393,7 +401,10 @@ export const packParallel = async (
     return pack(data, dataSchema, opt);
   }
 
-  const parts = packParts(data, dataSchema as any);
+  const parts = packParts(
+    data as Record<string, unknown>,
+    dataSchema as Record<string, Schema>,
+  );
   return combinePackedParts(parts, keys, opt);
 };
 
@@ -405,8 +416,8 @@ export const packParallel = async (
  * Returns packed parts that can be combined with combinePackedParts().
  */
 export const packParts = (
-  data: any,
-  dataSchema: { [name: string]: Schema | Schema[] },
+  data: Record<string, unknown>,
+  dataSchema: Record<string, Schema>,
 ): { [key: string]: Uint8Array } => {
   const result: { [key: string]: Uint8Array } = {};
   for (const key in dataSchema) {
