@@ -524,6 +524,24 @@ console.log(unpacked); // { id: 1, nickName: undefined, age: 30 }
 
 Works in both Node.js and browser environments. No external dependencies — uses native `Uint8Array`, `DataView`, `TextEncoder`, and `TextDecoder` APIs.
 
+## Development
+
+```bash
+npm install
+npm run build
+npm test
+npm run lint
+npm run format:check
+```
+
+The test suite uses Node's built-in test runner through `tsx`, so TypeScript specs run without the old Mocha toolchain. Coverage uses Node's built-in test coverage support:
+
+```bash
+npm run coverage
+```
+
+`npm run build` emits CJS, ESM, and UMD bundles with Rollup, then runs `terser` in `postbuild` to minify the UMD bundle.
+
 ## License
 
 MIT
